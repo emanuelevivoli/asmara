@@ -1,0 +1,33 @@
+Bootstrap: docker
+From: nvcr.io/nvidia/pytorch:21.11-py3
+
+%files
+    requirements\_cont.txt /requirements.txt
+
+%post
+    apt-get update &&  DEBIAN\_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata
+    apt-get -y install python3-pip python3-dev
+    # all sections are executed in /bin/sh so source cannot be used, simply delete it
+    # source /venv/bin/activate in bash == /venv/bin/activate in /bin/sh
+    python3 -m venv /venv && /bin/sh /venv/bin/activate
+    pip install --upgrade pip
+    pip install -r /requirements.txt
+    mkdir /code
+
+%environment
+    # this is the same of write the env var in .bashrc or .profile
+    # allows to define environment variables
+    export TZ=Europe/Rome
+    export SHELL=/bin/bash
+    export LC\_ALL=C
+    export PYTHONDONTWRITEBYTECODE=1
+    export PYTHONUNBUFFERED=1
+    export NEPTUNE\_API\_TOKEN=eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjZTNmNTNlMi1iZTkxLTRjNjMtOWU5NC1jMzI4NjE1NmRlN2MifQ==
+
+%labels
+    Maintainer MICC
+    Author niccolo.biondi@unifi.it
+    Version v0.0.1
+
+%help
+    build with `singularity build --sandbox --fakeroot ${SCRATCH_A100}/images/<NAME>.sif Singularity`

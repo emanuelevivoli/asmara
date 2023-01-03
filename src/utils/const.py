@@ -5,11 +5,11 @@ BASEPATH = Path('/Users/emanuelevivoli/asmara/')
 datapath = BASEPATH / Path('data')
 
 datarawpath = datapath / Path('raw')
-metapath = datapath / Path('processed/meta')
+interimpath = datapath / Path('interim')
+processedpath = datapath / Path('processed')
 
-# Path for inversions
-inversionpath = datapath / Path('interim/inversions')
+# Path for interim data that has been transformed.
 hologramspath = datapath / Path('interim/holograms')
-
-meta_imagespath = datapath / Path('processed/images_meta')
-holo_imagespath = datapath / Path('interim/holo_images')
+imagespath = datapath / Path('interim/images')
+inversionspath = datapath / Path('interim/inversions')
+metadatapath = datapath / Path('interim/meta')

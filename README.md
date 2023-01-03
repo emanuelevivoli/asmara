@@ -55,3 +55,83 @@ Project Organization
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
+
+## Install Miniconda
+
+To install Miniconda, run:
+
+```bash
+$ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+$ bash Miniconda3-latest-Linux-x86_64.sh
+```
+
+## Conda environment
+
+To create the conda environment, from `requirements.txt`, run:
+
+```bash
+$ conda create --name asmara --file requirements.txt -y
+```
+
+## Install
+
+To install the package, run:
+
+```bash
+$ pip install -e .
+```
+
+## Install Matlab
+
+As we use some matlab code (if you want to trabnslate MATLAB code into puython, ploease submitt an PR), we need to install MATLAB.
+Please refer to the [MATLAB README](matlab/README.md) to know how to install MATLAB.
+
+In case is not possible to install it, you can download the precomputed hologram numpy arrays from [here]().
+
+## Prepare dataset
+
+### case 1: MATLAB installed
+To prepare the dataset, we first need to check if the dataset is already downloaded. If not, we need to download it. 
+Please, go to the [data README](data/README.md) to know how to download the dataset.
+
+Then, we need to extract the holograms from the raw data. To do that, we need to run the following command:
+    
+```bash
+$ python src/data/extract_holograms.py
+```
+
+### case 2: MATLAB not installed
+In case MATLAB is not installed, you can download the precomputed hologram numpy arrays from [here]().
+Then, you need to extract the holograms from the raw data. To do that, we need to run the following command:
+    
+```bash
+$ python src/data/extract_holograms.py --precomputed
+```
+
+### Options
+When extracting the holograms we have the options to save the holograms in a different format.
+The format are `npy`, `png`, and `inv` (which is a 3D numpy array from the angular spectrum). There is another param, which is `meta`, which is a json file with the metadata of the holograms.
+
+To save the holograms in a different format, you can run the following command:
+
+```bash
+$ python src/data/extract_holograms.py --format npy,png,inv,meta
+```
+
+Note: when using the `precomputed` format, the `npy` format must be present.
+
+## Run
+
+To run the project, run:
+
+```bash
+$ python src/main.py
+```
+
+## Test
+
+To test the project, run:
+
+```bash
+$ pytest
+```

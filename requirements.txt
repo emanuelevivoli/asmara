@@ -7,6 +7,7 @@ python-dotenv>=0.5.1
 numpy
 pandas
 tqdm
+python-dotenv
 
 # install from conda-forge
 conda-forge::awscli

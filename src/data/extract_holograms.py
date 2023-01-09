@@ -22,25 +22,23 @@ from tqdm.auto import tqdm
 from src.utils.const import *
 from src.utils.spec import locations, prefixes, positions, info
 
-
-
 def matlab_settings():
     # matlab imports
     import matlab.engine
     # create a global variable
     global eng
     eng = matlab.engine.start_matlab()
-    s = eng.genpath(BASEPATH / Path('matlab'))
+    s = eng.genpath(os.path.join(BASEPATH,'matlab'))
     eng.addpath(s, nargout=0)
 
 def objects_info(filename='indoor_objects.csv', key='id', columns=['name', 'classification']):
     assert len(columns) >= 2
-    df = pd.read_csv(datarawpath / Path(filename))
+    df = pd.read_csv(Path(datarawpath) / Path(filename))
     df_dict = {k: (v1, v2) for k, (v1, v2) in zip(
         df[key], zip(df[columns[0]], df[columns[1]]))}
-    return df
+    return df, df_dict
 
-def create_annotation(name, info, location):
+def create_annotation(name, info, location, df_dict):
     
     indexes = info[location]['indexes']
     keys = info[location]['keys']
@@ -98,8 +96,7 @@ def create_inversion(img,
                             medium_index=MEDIUM_INDEX, 
                             illum_wavelen=WAVELENGTH,
                             illum_polarization=(1,0), 
-                            spacing=SPACING,
-                            channel=[0,1,2])
+                            spacing=SPACING)
                         
     zstack = np.linspace(0, 30, 61)
     rec_vol = hp.propagate(raw_holo, zstack)
@@ -114,12 +111,15 @@ def create_folder(path, location):
         os.makedirs(os.path.join(path, location))
 
 
-# main get format, a list of strings
+# main get:
+# - precompute, a boolean
+# - format, a list of strings
+# - location, a string
 @click.command()
-@click.option('--precompute', '-p', is_flag=True)
-@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']))
-@click.option('--location', '-l', type=click.Choice(locations))
-def main(format):
+@click.option('--precompute', '-p', is_flag=True, help='If True, matlab is not needed')
+@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Format of the output files')
+@click.option('--location', '-l', type=click.Choice(locations), help='Location of the scans')
+def main(precompute, format, location):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
@@ -131,20 +131,27 @@ def main(format):
     if not precompute:
         matlab_settings()
 
-    # at least one of the arguments must be True
-    assert len(format)>0
+    df, df_dict = objects_info()
 
-    # get save_npy, save_img, save_inv, save_meta from format
-    save_npy = 'npy' in format
-    save_img = 'img' in format
-    save_inv = 'inv' in format
-    save_meta = 'meta' in format
+    # if format is empty, all are set to True
+    if len(format) == 0:
+        save_npy = True
+        save_img = True
+        save_inv = True
+        save_meta = True
+
+    else:
+        # get save_npy, save_img, save_inv, save_meta from format
+        save_npy = 'npy' in format
+        save_img = 'img' in format
+        save_inv = 'inv' in format
+        save_meta = 'meta' in format
 
     # if location is not specified, process all locations otherwise process only the specified location
-    if location is None: locations = locations
-    else: locations = [location]
+    if location is None: locs = locations
+    else: locs = [location]
 
-    for location in tqdm(locations):
+    for location in tqdm(locs):
         
         # -> create HOLOGRAMS
         metadata = []
@@ -179,7 +186,7 @@ def main(format):
             #! CREATE ANNOTATION
             ######################
 
-            annotation_obj = create_annotation(name, info, location)
+            annotation_obj = create_annotation(name, info, location, df_dict)
 
             try:
                 # if precompute is True, matlab is not needed
@@ -196,12 +203,13 @@ def main(format):
 
                     if save_npy:
                         # save numpy arrays to file
-                        np.save(file=hologramspath / Path(location) / Path(f'{name}_holo.npy'), arr=np_Hfill)
+                        np.save(file=Path(hologramspath) / Path(location) / Path(f'{name}_holo.npy'), arr=np_Hfill)
                 else:
                     # load numpy arrays from file
-                    np_Hfill = np.load(file=hologramspath / Path(location) / Path(f'{name}_holo.npy'))
+                    np_Hfill = np.load(file=Path(hologramspath) / Path(location) / Path(f'{name}_holo.npy'))
 
                 # convert numpy arrays to image
+                np_Hfill = np.abs(np_Hfill)
                 I8 = (((np_Hfill - np_Hfill.min()) / (np_Hfill.max() - np_Hfill.min())) * 255).astype(np.uint8)
                 img = Image.fromarray(I8)
 
@@ -210,8 +218,8 @@ def main(format):
                     img.save(os.path.join(imagespath, location, f'{name}.png'))
                 
                 if save_inv:
-                    inversion = create_inversion(img, MEDIUM_INDEX = 1, WAVELENGTH = 15, SPACING = 0.5 )
-                    np.save(file= inversionspath / Path(location) / Path(f'{name}_inv.npy'), arr=inversion)
+                    inversion = create_inversion(os.path.join(imagespath, location, f'{name}.png'), MEDIUM_INDEX = 1, WAVELENGTH = 15, SPACING = 0.5 )
+                    np.save(file= Path(inversionspath) / Path(location) / Path(f'{name}_inv.npy'), arr=inversion)
 
                 # add info to metadata
                 metadata.append(annotation_obj)
@@ -226,7 +234,7 @@ def main(format):
             
             # save pandas to csv
             columns = [f'{loc_prefix}_{column}' for column in columns]
-            df.to_csv(metadatapath / Path(f'{location}.csv'), index=False, header=True, columns=columns)
+            df.to_csv(Path(metadatapath) / Path(f'{location}.csv'), index=False, header=True, columns=columns)
 
 
 if __name__ == '__main__':

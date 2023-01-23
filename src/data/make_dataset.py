@@ -9,6 +9,7 @@ from dotenv import find_dotenv, load_dotenv
 import numpy as np
 import pandas as pd
 from PIL import Image
+from src.utils.data import if_null_create
 
 from src.utils.spec import *
 from src.utils.const import *
@@ -93,10 +94,6 @@ def main(indoor_filepath, outdoor_filepath, format, output_path):
         mix_df.to_csv(output_path / Path('meta') / Path('mix.csv'), index=False, header=True, columns=mix_columns)
 
     print('Done!')
-
-def if_null_create(output_path):
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'

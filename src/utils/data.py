@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 def twoclass(label:str)->int:
@@ -64,3 +65,7 @@ def read_scans(indoor_dir, outdoor_dir):
             outdoor_scans.append(scan)
     
     return indoor_scans, outdoor_scans
+
+def if_null_create(output_path):
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)

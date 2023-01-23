@@ -44,3 +44,23 @@ def get_holo_noise(indoorpath, in_file_name, in_id, size):
             holo_noise = np.zeros(size)
 
     return holo_noise
+
+def read_scans(indoor_dir, outdoor_dir):
+    import os
+
+    indoor_scans = []
+    outdoor_scans = []
+
+    for file_name in os.listdir(indoor_dir):
+        if file_name.endswith('.npy'):
+            file_path = os.path.join(indoor_dir, file_name)
+            scan = np.load(file_path)
+            indoor_scans.append(scan)
+
+    for file_name in os.listdir(outdoor_dir):
+        if file_name.endswith('.npy'):
+            file_path = os.path.join(outdoor_dir, file_name)
+            scan = np.load(file_path)
+            outdoor_scans.append(scan)
+    
+    return indoor_scans, outdoor_scans

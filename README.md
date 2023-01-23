@@ -128,6 +128,16 @@ To run the project, run:
 $ python src/main.py
 ```
 
+## Train 
+
+To train the project, using the train_model.py script, run:
+
+```bash
+$ python src/models/train_model.py
+```
+
+
+
 ## Test
 
 To test the project, run:

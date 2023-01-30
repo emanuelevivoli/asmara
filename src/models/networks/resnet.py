@@ -1,19 +1,45 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+import torchmetrics
 import torchvision
 
+
+import torch
+import torch.nn as nn
+import torchvision.models as models
+
+        
 class ResNet50(pl.LightningModule):
 
-    def __init__(self, num_classes: int = 10):
+    def __init__(self, num_classes: int = 10, pretrained: bool = True, **kwargs):
         super(ResNet50, self).__init__()
         
-        # Load a pre-trained ResNet50 model and remove the fully-connected layer
-        self.model = torchvision.models.resnet50(pretrained=True)
-        self.model = nn.Sequential(*list(self.model.children())[:-1])
+        # to avoid warnings
+        if pretrained: weights = 'ResNet50_Weights.DEFAULT'
+        else: weights = None
+
+        self.model = models.resnet50(weights=weights)
+        self.model.conv1 = self._load_pretrained_weights(self.model.conv1)
         
         # Add a new fully-connected layer with the correct number of output classes
-        self.fc = nn.Linear(in_features=2048, out_features=num_classes)
+        self.fc = nn.Linear(in_features=1000, out_features=num_classes)
+
+        # Define the loss function
+        self.loss_fn = nn.CrossEntropyLoss()
+
+        # Define the accuracy metric
+        self.accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+
+    def _load_pretrained_weights(self, previous_layer):
+        "Load pretrained weights based on number of input channels"
+        # make a copy of the first layer
+        new_layer = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # we take the sum
+        new_layer.weight.data = previous_layer.weight.data.sum(dim=1, keepdim=True)
+        # and divide by the number of input channels
+        new_layer.weight.data /= getattr(previous_layer, 'in_channels')
+        return new_layer
 
     def forward(self, x):
         x = self.model(x)

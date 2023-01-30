@@ -80,6 +80,12 @@ data/interim
 data/raw
 data/processed
 
+# Exclude pytorch lightning logs
+lightning_logs/
+
+# Exclude pytorch lightning checkpoints
+*.ckpt
+
 # Mac OS-specific storage files
 .DS_Store
 

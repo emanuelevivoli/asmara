@@ -22,13 +22,13 @@ def fgclass(label:str)->int:
     
 def task_manager(task_name, row):
         
-    if task_name == '2-class':
+    if task_name == 'bin':
         label = twoclass(row['in_name'])
 
-    elif task_name == '3-class':
+    elif task_name == 'tri':
         label = threeclass(row['in_name'])
 
-    elif task_name == 'fg-class':
+    elif task_name == 'fine-grain':
         label = fgclass(row['in_id'])
         
     else:
@@ -69,3 +69,19 @@ def read_scans(indoor_dir, outdoor_dir):
 def if_null_create(output_path):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
+
+
+def chack_task_classes(cfg):
+    if cfg.data.task == 'bin':
+        if cfg.model.num_classes != 2:
+            raise ValueError("The model is not configured for binary classification. Check the configuration file.")
+    elif cfg.data.task == 'tri':
+        if cfg.model.num_classes != 3:
+            raise ValueError("The model is not configured for ternary classification. Check the configuration file.")
+    elif cfg.data.task == 'fine-grain':
+        if cfg.model.num_classes != 6:
+            raise ValueError("The model is not configured for fine-grained classification. Check the configuration file.")
+    else:
+        raise ValueError("The task is not recognized. Check the configuration file.")
+    
+    return None

@@ -1,14 +1,24 @@
 seed: 0
 data:
-  metapath: 'data/processed/meta'
-  indoor_dir: 'data/raw/indoor'
-  outdoor_dir: 'data/raw/outdoor'
+  dataset: null
+  task: null
+  remove: []
+  paths: 
+    holograms: 'data/processed/holograms'
+    inversions: 'data/processed/inversions'
+    splits: 'data/processed/splits'
   sample_rate: 0.2
-  train_folds: 'train'
-  val_folds: 'val'
-  test_folds: 'test'
+  folds: 
+    train: 'train'
+    val: 'val'
+    test: 'test'
   batch_size: 8
 model:
-  num_classes: 10
-# trainer:
+  num_classes: null
+  pretrained: False
+trainer: 
+  accelerator: 'gpu'
+  devices: 2
+  max_epochs: 10
+
 

@@ -120,6 +120,33 @@ $ python src/data/extract_holograms.py --format npy,png,inv,meta
 
 Note: when using the `precomputed` format, the `npy` format must be present.
 
+### Mix the dataset
+
+To mix the dataset, run:
+
+```bash
+python src/data/make_dataset.py
+```
+
+This will create a `data/processed` folder with the mixed dataset. The folder is composed by the following files:
+- `holograms`: the dataset with the mixed holograms (npy, 2D matrix)
+- `images`: the dataset with the mixed holograms images (png)
+- `inversions`: the dataset with the mixed inversion of the holograms (npy, 3D tensor)
+- `meta`: the dataset with the mixed metadata of the holograms (csv)
+
+### Split the dataset
+
+To split the dataset, run:
+
+```bash
+python src/data/split_dataset.py
+```
+
+This will create a `data/splits` folder with the splitted dataset. The folder is composed by the following files:
+- `train.csv`: the dataset indexes of the train set
+- `val.csv`: the dataset indexes of the validation set
+- `test.csv`: the dataset indexes of the test set
+
 ## Run
 
 To run the project, run:

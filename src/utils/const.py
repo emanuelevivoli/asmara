@@ -1,6 +1,6 @@
 from pathlib import Path
 
-BASEPATH = Path('/Users/emanuelevivoli/Projects/asmara')
+BASEPATH = Path('/home/evivoli/asmara')
 
 datapath = BASEPATH / Path('data')
 

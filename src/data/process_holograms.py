@@ -54,7 +54,7 @@ def create_annotation(name, info, location, df_dict):
         if location == 'indoor':
             inclination = 20
         else:
-            additional = name_list[3]
+            raise ValueError(f'Additional info not found for {name}')
     else:
         if location == 'indoor':
             inclination = 0
@@ -100,11 +100,11 @@ def create_inversion(img,
 
     return rec_vol
 
-def create_folder(path, location):
+def create_folder(path, location=None):
     if not os.path.exists(path):
         os.makedirs(path)  
 
-    if not os.path.exists(os.path.join(path, location)):
+    if location is not None and not os.path.exists(os.path.join(path, location)):
         os.makedirs(os.path.join(path, location))
 
 
@@ -116,7 +116,8 @@ def create_folder(path, location):
 @click.option('--precompute', '-p', is_flag=True, help='If True, matlab is not needed')
 @click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Format of the output files')
 @click.option('--location', '-l', type=click.Choice(locations), help='Location of the scans')
-def main(precompute, format, location):
+@click.option('--test', '-t', is_flag=True, help='Only test 10 elements')
+def main(precompute, format, location, test):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
@@ -159,7 +160,7 @@ def main(precompute, format, location):
         if save_npy: create_folder(hologramspath, location)
         if save_img: create_folder(imagespath, location)
         if save_inv: create_folder(inversionspath, location)
-        if save_meta: create_folder(metadatapath, location)
+        if save_meta: create_folder(metadatapath)
 
         # instead of doing this:
         #   plutos = [name for name in names if name.endswith('.log')]
@@ -173,6 +174,9 @@ def main(precompute, format, location):
 
         columns = info[location]['columns']
         loc_prefix = info[location]['prefix']
+
+        if test:
+            intersection = list(intersection)[:10]
 
         for name in tqdm(intersection):
 

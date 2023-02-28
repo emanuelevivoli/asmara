@@ -2,9 +2,11 @@ import torch.nn as nn
 
 import importlib
 from omegaconf import DictConfig, OmegaConf
+from src.utils.const import BASEPATH
 
 import sys
-sys.path.append("/home/evivoli/asmara")
+
+sys.path.append(BASEPATH)
 
 def instantiate_from_config(cfg: DictConfig) -> nn.Module:
     # Extract the module name and class name from the config

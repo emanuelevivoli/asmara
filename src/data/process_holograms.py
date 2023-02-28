@@ -20,7 +20,7 @@ from PIL import Image
 # utils
 from tqdm.auto import tqdm
 from src.utils.const import *
-from src.utils.spec import locations, prefixes, positions, info
+from src.utils.spec import locations, info, params
 
 def matlab_settings():
     # matlab imports
@@ -45,12 +45,12 @@ def create_annotation(name, info, location, df_dict):
     prefix = info[location]['prefix']
     
     name_list = name.split('_')
+    
+    obj = {}
+    for c_index, c_key in zip(indexes, keys):
+        obj[f'{prefix}_{c_key}'] = name_list[c_index]
+
     if len(name_list) > len(indexes):
-        custom_indexes = np.ones(len(indexes), dtype=int)
-        custom_indexes[0] = 0
-        custom_indexes[1] = 0
-        custom_indexes[2] = 0
-        custom_indexes += indexes
         if location == 'indoor':
             inclination = 20
         else:
@@ -60,11 +60,6 @@ def create_annotation(name, info, location, df_dict):
             inclination = 0
         else:
             additional = None
-        custom_indexes = indexes
-
-    obj = {}
-    for c_index, c_key in zip(custom_indexes, keys):
-        obj[f'{prefix}_{c_key}'] = name_list[c_index]
 
     obj[f'{prefix}_location'] = location        
     obj[f'{prefix}_file_name'] = name
@@ -87,10 +82,12 @@ def create_annotation(name, info, location, df_dict):
 
 
 def create_inversion(img,
-                    MEDIUM_INDEX = 1,
+                    MEDIUM_INDEX = None,
                     WAVELENGTH = 15,
                     SPACING = 0.5 ):
-
+    
+    assert MEDIUM_INDEX is not None, "MEDIUM_INDEX is not defined"
+    
     # load image from file
     raw_holo = hp.load_image(img, 
                             medium_index=MEDIUM_INDEX, 
@@ -218,7 +215,7 @@ def main(precompute, format, location):
                     img.save(os.path.join(imagespath, location, f'{name}.png'))
                 
                 if save_inv:
-                    inversion = create_inversion(os.path.join(imagespath, location, f'{name}.png'), MEDIUM_INDEX = 1, WAVELENGTH = 15, SPACING = 0.5 )
+                    inversion = create_inversion(os.path.join(imagespath, location, f'{name}.png'), MEDIUM_INDEX = params[location]['MEDIUM_INDEX'], WAVELENGTH = 15, SPACING = 0.5 )
                     np.save(file= Path(inversionspath) / Path(location) / Path(f'{name}_inv.npy'), arr=inversion)
 
                 # add info to metadata

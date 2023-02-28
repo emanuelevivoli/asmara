@@ -8,10 +8,13 @@ numpy
 pandas
 tqdm
 python-dotenv
+hydra-core
 
 # install from conda-forge
 conda-forge::awscli
 conda-forge:holopy
+conda-forge:pytorch-lightning
+
 
 # testing requirements
 pytest

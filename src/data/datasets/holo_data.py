@@ -4,6 +4,7 @@ import pandas as pd
 
 from pathlib import Path
 from typing import List
+from omegaconf import DictConfig
 from torch.nn import functional as F
 
 from src.utils.data import task_manager
@@ -11,28 +12,27 @@ from src.utils.spec import TASKS
 
 import logging
 logger = logging.getLogger(__name__)
+
 class LandmineDataset(torch.utils.data.Dataset):
 
     def __init__(self, data_path: Path,
                        meta_path: Path,
-                       sample_rate: float = 0.2,
-                       task: str = 'bin',
-                       out_type: str = 'real',
-                       fold: str = 'train',
-                       remove: List = []) -> None:
+                       fold: str,
+                       cfg: DictConfig,
+                       out_type: str = 'complex',
+                       transform=None) -> None:
 
         self.data_path = data_path
-        # tasks that can be conducted are:
-        # - 'bin'   - classification [mine / clutter]
-        # - 'tri'   - classification [mine / clutter / arch]
-        # - 'fg-class'  - fine-grain classification [vs50, wood-cylinder, ...]
-        self.sample_rate = sample_rate
-        self.task = task
-        self.out_type = out_type
-
-        # filter out some
+        self.cfg = cfg
+        
+        self.fold = fold
+        
         self.csv = pd.read_csv(meta_path / f'{fold}.csv')
-        self.csv = self.csv[~self.csv['in_id'].isin(remove)]
+        self.csv = self.csv[~self.csv['in_id'].isin(self.cfg.data.remove)]
+        self.task = cfg.data.task
+
+        self.out_type = out_type
+        self.transform = transform
         
         
     def __getitem__(self, index):
@@ -46,25 +46,13 @@ class LandmineDataset(torch.utils.data.Dataset):
         # in_noise = torch.from_numpy(in_noise).double()
         # data = (data - in_noise)
 
-        # data.shape = torch.Size([62, 52])
-        # check dmeensions
+        # data.shape should be torch.Size([52, 62])
         if data.shape[0] != 52 or data.shape[1] != 62:
-            logger.warning(f'data.shape = {data.shape} (should be 52x62)')
-            # [52, 61]
-            real_data = torch.view_as_real(data)
-            # [52, 61, 2] HWC to [2, 52, 61] CHW (channel, height, width)
-            real_data = real_data.permute(2, 0, 1)
-            # [1, 2, 52, 61] BCHW
-            real_data = real_data.unsqueeze(0)
-            # The input dimensions are interpreted in the form: 
-            # mini-batch x channels x [optional depth] x [optional height] x width
-            real_data = F.interpolate(real_data, size=(52, 62), mode='nearest')
-            # [1, 2, 52, 62] BCHW to [2, 52, 62] CHW
-            real_data = real_data.squeeze(0)
-            # [2, 52, 62] CHW to [52, 62, 2] HWC
-            real_data = real_data.permute(1, 2, 0).contiguous()
-            # [52, 62, 2] HWC to [52, 62] complex64
-            data = torch.view_as_complex(real_data)
+            real_data = torch.view_as_real(data) # [52, 61]
+            real_data = real_data.permute(2, 0, 1).unsqueeze(0) # [1, 2, 52, 61]
+            real_data = F.interpolate(real_data, size=(52, 62), mode='nearest') # [1, 2, 52, 62]
+            real_data = real_data.squeeze(0).permute(1, 2, 0).contiguous() # [52, 62, 2]
+            data = torch.view_as_complex(real_data) # [52, 62]
         
         # get correct label based on self.task property
         if self.task in TASKS:
@@ -89,6 +77,9 @@ class LandmineDataset(torch.utils.data.Dataset):
         
         # reshape the mix to have channels first
         mix = mix.permute(2, 0, 1)
+
+        if self.transform:
+            mix = self.transform(mix)
         
         return mix.float(), label
 
@@ -97,4 +88,3 @@ class LandmineDataset(torch.utils.data.Dataset):
     
     def __len__(self) -> int:
         return len(self.csv)
-

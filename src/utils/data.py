@@ -71,7 +71,7 @@ def if_null_create(output_path):
         os.makedirs(output_path)
 
 
-def chack_task_classes(cfg):
+def check_task_classes(cfg):
     if cfg.data.task == 'bin':
         if cfg.model.num_classes != 2:
             raise ValueError("The model is not configured for binary classification. Check the configuration file.")

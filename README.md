@@ -73,6 +73,9 @@ To create the conda environment, from `requirements.txt`, run:
 $ conda create --name asmara --file requirements.txt -y
 ```
 
+Then install pytorch and torchvision from [pytorch.org](https://pytorch.org/).
+See also [get started](https://pytorch.org/get-started/locally/).
+
 ## Install
 
 To install the package, run:

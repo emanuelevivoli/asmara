@@ -79,12 +79,14 @@ target/
 data/interim
 data/raw
 data/processed
+data/old.processed
 
-# Exclude pytorch lightning logs
+# Exclude loggings
 lightning_logs/
+wandb/
 
-# Exclude pytorch lightning checkpoints
-*.ckpt
+# Exclude hydra config
+.hydra/
 
 # Mac OS-specific storage files
 .DS_Store
@@ -96,12 +98,13 @@ lightning_logs/
 # Mypy cache
 .mypy_cache/
 
-
 # other projects
-diffractsim
+diffractsim/
 
 # others
 others
 
 # Output files
 outputs
+
+*.zip

@@ -1,0 +1,3 @@
+_target_: src.models.nets.resnet.ResNet50
+
+params: null

@@ -5,7 +5,7 @@ from torch import Tensor
 from torch.nn import functional as F
 
 import pytorch_lightning as pl
-from pytorch_lightning.metrics import functional
+import torchmetrics
 
 class UNet(pl.LightningModule):
     """Pytorch Lightning implementation of U-Net.
@@ -80,7 +80,7 @@ class UNet(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         y_hat = torch.argmax(y_hat, dim=1)
-        acc = functional.accuracy(y_hat, y)
+        acc = torchmetrics.Accuracy(y_hat, y)
         self.log('val_acc', acc, on_epoch=True, prog_bar=True)
         return acc
         

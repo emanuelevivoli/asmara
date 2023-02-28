@@ -1,0 +1,37 @@
+seed: 0
+
+data:
+  dataset: null
+  task: null
+  remove: []
+  transforms: default
+  paths: 
+    holograms: 'data/processed/holograms'
+    inversions: 'data/processed/inversions'
+    splits: 'data/processed/splits'
+  batch_size: 8
+  # sample_rate: 0.2
+
+dataset:
+  num_workers: 4
+  persistent_workers: True
+
+model:
+  # specific
+  name: null
+  _target_: null
+  params: null
+  # general
+  num_classes: null
+  pretrained: False
+
+trainer: 
+  accelerator: 'gpu'
+  devices: 2
+  max_epochs: 1000
+
+custom_trainer:
+  strategy: 'ddp'
+  find_unused_parameters: False
+
+

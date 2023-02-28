@@ -1,3 +1,10 @@
+TASKS = ['bin','tri','fine-grain']
+CLASS_NUMBER = {
+        "bin": 2,
+        "tri": 3,
+        "fine-grain": 5
+    }
+
 locations = ['outdoor', 'indoor']
 prefixes = {
     'indoor': ['in'],

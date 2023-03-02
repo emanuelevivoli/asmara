@@ -5,9 +5,11 @@ data:
   task: null
   remove: []
   transforms: default
+  source: interps
+  out_type: real
   paths: 
-    holograms: 'data/processed/holograms'
-    inversions: 'data/processed/inversions'
+    holograms: 'data/processed/interps/holograms'
+    inversions: 'data/processed/interps/inversions'
     splits: 'data/processed/splits'
   batch_size: 8
   # sample_rate: 0.2
@@ -34,4 +36,7 @@ custom_trainer:
   strategy: 'ddp'
   find_unused_parameters: False
 
-
+optimizer:
+  lr: 1e-3
+  momentum: 0.875
+  

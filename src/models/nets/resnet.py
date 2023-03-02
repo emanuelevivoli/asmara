@@ -43,24 +43,25 @@ class ResNet50(pl.LightningModule):
         input size.
     """
 
-    def __init__(self, num_classes: int = 10, pretrained: bool = True, **kwargs):
+    def __init__(self, num_classes: int = None, pretrained: bool = True, params = None, **kwargs):
         super(ResNet50, self).__init__()
         
         # to avoid warnings
         if pretrained: weights = 'ResNet50_Weights.DEFAULT'
         else: weights = None
 
+        self.opt = kwargs.get('opt', None)
+
+        self.num_classes = num_classes
+
         self.model = models.resnet50(weights=weights)
         self.model.conv1 = self._load_pretrained_weights(self.model.conv1)
         
-        # Add a new fully-connected layer with the correct number of output classes
         self.fc = nn.Linear(in_features=1000, out_features=num_classes)
-
-        # Define the loss function
+        
         self.loss_fn = nn.CrossEntropyLoss()
+        self.accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)   
 
-        # Define the accuracy metric
-        self.accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
 
     def _load_pretrained_weights(self, previous_layer):
         "Load pretrained weights based on number of input channels"
@@ -81,64 +82,64 @@ class ResNet50(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # Get the input and labels from the batch
         inputs, labels = batch
-        if torch.cuda.is_available():
-            inputs = inputs.cuda()
-            labels = labels.cuda()
         
         # Forward pass
         logits = self.forward(inputs)
-        
-        # Calculate the loss
-        loss = self.loss_fn(logits, labels)
-        
-        # Log the loss and accuracy
-        self.log("train_loss", loss)
-        self.log("train_acc", self.accuracy(logits, labels))
 
-        logs = {"loss": loss, "acc": self.accuracy(logits, labels)}
+        # Calculate the loss and accuracy
+        loss = self.loss_fn(logits, labels)
+        acc = self.accuracy(logits, labels)
+
+        # Log the loss and accuracy
+        self.log("train_loss", loss, sync_dist=True)
+        self.log("train_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
         return logs
 
     def validation_step(self, batch, batch_idx):
         # Get the input and labels from the batch
         inputs, labels = batch
-        if torch.cuda.is_available():
-            inputs = inputs.cuda()
-            labels = labels.cuda()
         
         # Forward pass
         logits = self.forward(inputs)
-        
-        # Calculate the loss
-        loss = self.loss_fn(logits, labels)
-        
-        # Log the loss and accuracy
-        self.log("val_loss", loss)
-        self.log("val_acc", self.accuracy(logits, labels))
 
-        logs = {"loss": loss, "acc": self.accuracy(logits, labels)}
+        # Calculate the loss and accuracy
+        loss = self.loss_fn(logits, labels)
+        acc = self.accuracy(logits, labels)
+
+        # Log the loss and accuracy
+        self.log("val_loss", loss, sync_dist=True)
+        self.log("val_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
         return logs
     
     def test_step(self, batch, batch_idx):
         # Get the input and labels from the batch
         inputs, labels = batch
-        if torch.cuda.is_available():
-            inputs = inputs.cuda()
-            labels = labels.cuda()
         
         # Forward pass
         logits = self.forward(inputs)
-        
-        # Calculate the loss
-        loss = self.loss_fn(logits, labels)
-        
-        # Log the loss and accuracy
-        self.log("test_loss", loss)
-        self.log("test_acc", self.accuracy(logits, labels))
 
-        logs = {"loss": loss, "acc": self.accuracy(logits, labels)}
+        # Calculate the loss and accuracy
+        loss = self.loss_fn(logits, labels)
+        acc = self.accuracy(logits, labels)
+
+        # Log the loss and accuracy
+        self.log("test_loss", loss, sync_dist=True)
+        self.log("test_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
         return logs
 
     def configure_optimizers(self):
         # Use SGD with a learning rate of 0.001 and momentum of 0
-        optimizer = torch.optim.SGD(self.parameters(), lr=1e-3, momentum=0.875)
+        if self.opt != None:
+            optimizer = torch.optim.SGD(
+                self.parameters(), 
+                lr=self.opt.lr, 
+                momentum=self.opt.momentum)
+        else:
+            optimizer = torch.optim.SGD(self.parameters())
         return optimizer

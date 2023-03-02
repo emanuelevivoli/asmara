@@ -8,9 +8,9 @@ import sys
 
 sys.path.append(BASEPATH)
 
-def instantiate_from_config(cfg: DictConfig) -> nn.Module:
+def instantiate_from_config(cfg_model: DictConfig, cfg_opt: DictConfig) -> nn.Module:
     # Extract the module name and class name from the config
-    module_name, class_name = cfg._target_.rsplit(".", 1)
+    module_name, class_name = cfg_model._target_.rsplit(".", 1)
     
     # Import the module dynamically using importlib
     module = importlib.import_module(module_name)
@@ -19,12 +19,12 @@ def instantiate_from_config(cfg: DictConfig) -> nn.Module:
     class_ = getattr(module, class_name)
 
     # get the constructor arguments from the configuration object
-    constructor_args = OmegaConf.to_container(cfg, resolve=True)
+    constructor_args = OmegaConf.to_container(cfg_model, resolve=True)
 
     # remove the '_target_' key from the constructor arguments
     constructor_args.pop("_target_")
 
     # instantiate the class with the constructor arguments
-    instance = class_(**constructor_args)
+    instance = class_(**{**constructor_args, 'opt': cfg_opt})
 
     return instance

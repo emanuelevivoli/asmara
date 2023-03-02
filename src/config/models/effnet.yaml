@@ -1,0 +1,6 @@
+_target_: src.models.nets.effnet.EfficientNet
+
+params: 
+  image_size: 60
+  in_channels: 1
+  dropout: 0.2

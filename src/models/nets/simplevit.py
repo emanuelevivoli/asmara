@@ -1,3 +1,7 @@
+import os
+import shutil
+from omegaconf import OmegaConf
+
 import torch
 import torchmetrics
 import torch.nn as nn
@@ -13,38 +17,34 @@ class SimpleViT(pl.LightningModule):
     """
 
     def __init__(self, 
-                # model
-                image_size: int = 52, 
-                patch_size: int = 16, 
-                num_classes: int = 10, 
-                dim: int = 1024, 
-                depth: int = 6, 
-                heads: int = 16, 
-                mlp_dim: int = 2048, 
-                channels:int = 1, 
                 # general
-                hidden_dim: int = 100,
-                pretrained: bool = True, 
+                num_classes: int = None, 
+                pretrained: bool = None, 
+                params:dict = None,
                 **kwargs):
 
         super(SimpleViT, self).__init__()
 
+        params = OmegaConf.create(params)
+
+        self.opt = kwargs.get('opt', None)
+
         self.model = sViT(
-            image_size = image_size,
-            patch_size = patch_size,
             num_classes = num_classes,
-            dim = dim,
-            depth = depth,
-            heads = heads,
-            mlp_dim = mlp_dim,
-            channels = channels
+            image_size = params.image_size,
+            patch_size = params.patch_size,
+            channels = params.in_channels,
+            dim = params.embed_dim,
+            depth = params.num_layers,
+            heads = params.num_heads,
+            mlp_dim = params.mlp_dim,
         )
         
         if pretrained:
             logger.info("Loading pretrained weights")
             self.load_state(s = 'vit_model_best.pth')
             # Linear_head map the patch embeddings to the number of classes
-            self.model.linear_head = self.__set_head(dim, hidden_dim, num_classes)
+            self.model.linear_head = self.__set_head(params.embed_dim, params.hidden_dim, num_classes)
         else:
             logger.info("Training from scratch")
     
@@ -70,79 +70,67 @@ class SimpleViT(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # Get the input and labels from the batch
         inputs, labels = batch
-        if torch.cuda.is_available():
-            inputs = inputs.cuda()
-            labels = labels.cuda()
+        
         
         # Forward pass
         logits = self.forward(inputs)
         
-        # Calculate the loss
+        # Calculate the loss and accuracy
         loss = self.loss_fn(logits, labels)
-        
-        # Log the loss and accuracy
-        self.log("train_loss", loss)
-        self.log("train_acc", self.accuracy(logits, labels))
+        acc = self.accuracy(logits, labels)
 
-        logs = {"loss": loss, "acc": self.accuracy(logits, labels)}
+        # Log the loss and accuracy
+        self.log("train_loss", loss, sync_dist=True)
+        self.log("train_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
         return logs
 
     def validation_step(self, batch, batch_idx):
         # Get the input and labels from the batch
         inputs, labels = batch
-        if torch.cuda.is_available():
-            inputs = inputs.cuda()
-            labels = labels.cuda()
+        
         
         # Forward pass
         logits = self.forward(inputs)
         
-        # Calculate the loss
+        # Calculate the loss and accuracy
         loss = self.loss_fn(logits, labels)
-        
-        # Log the loss and accuracy
-        self.log("val_loss", loss)
-        self.log("val_acc", self.accuracy(logits, labels))
+        acc = self.accuracy(logits, labels)
 
-        logs = {"loss": loss, "acc": self.accuracy(logits, labels)}
+        # Log the loss and accuracy
+        self.log("val_loss", loss, sync_dist=True)
+        self.log("val_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
         return logs
 
     def test_step(self, batch, batch_idx):
         # Get the input and labels from the batch
         inputs, labels = batch
-        if torch.cuda.is_available():
-            inputs = inputs.cuda()
-            labels = labels.cuda()
+        
         
         # Forward pass
         logits = self.forward(inputs)
         
-        # Calculate the loss
+        # Calculate the loss and accuracy
         loss = self.loss_fn(logits, labels)
-        
-        # Log the loss and accuracy
-        self.log("test_loss", loss)
-        self.log("test_acc", self.accuracy(logits, labels))
+        acc = self.accuracy(logits, labels)
 
-        logs = {"loss": loss, "acc": self.accuracy(logits, labels)}
+        # Log the loss and accuracy
+        self.log("test_loss", loss, sync_dist=True)
+        self.log("test_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
         return logs
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3, momentum=0.875)
+        
+        if self.opt != None:
+            optimizer = torch.optim.AdamW(
+                self.parameters(), 
+                lr=self.opt.lr)
+        else:
+            optimizer = torch.optim.AdamW(self.parameters())
+            
         return optimizer
-
-    def save_state(self, state, is_best):
-        out = os.path.join(CHECKPOINTS, f'{self.name}_checkpoint.pth')
-        torch.save(state, out)
-        if is_best:
-            shutil.copyfile(out, os.path.join(CHECKPOINTS,f'{self.name}_model_best.pth'))
-    
-    def load_state(self, s):
-        s = torch.load(os.path.join(CHECKPOINTS, s))
-        self.model.load_state_dict(s['state_dict'])
-    
-    def resume(self, r):
-        print(f"=> loading checkpoint '{r}'")
-        c = torch.load(os.path.join(CHECKPOINTS, r))
-        self.load_state(c['state_dict'])
-        return c['epoch'], c['best_val_loss'], c['exit_counter'], c['optimizer'], c['best_val_f1']

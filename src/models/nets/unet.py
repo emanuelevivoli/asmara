@@ -4,8 +4,13 @@ from torch import nn
 from torch import Tensor
 from torch.nn import functional as F
 
+from omegaconf import OmegaConf
+
 import pytorch_lightning as pl
 import torchmetrics
+
+import logging
+logger = logging.getLogger(__name__)
 
 class UNet(pl.LightningModule):
     """Pytorch Lightning implementation of U-Net.
@@ -22,41 +27,60 @@ class UNet(pl.LightningModule):
 
     Args:
         num_classes: Number of output classes required
-        input_channels: Number of channels in input images (default 3)
+        in_channels: Number of channels in input images (default 3)
         num_layers: Number of layers in each side of U-net (default 5)
-        features_start: Number of features in first layer (default 64)
+        embed_dim: Number of features in first layer (default 64)
         bilinear: Whether to use bilinear interpolation (True) or transposed convolutions (default) for upsampling.
     """
 
-    def __init__(
-        self,
-        num_classes: int,
-        input_channels: int = 3,
-        num_layers: int = 5,
-        features_start: int = 64,
-        bilinear: bool = False,
-    ):
+    def __init__(self,
+                # general
+                num_classes: int = None, 
+                pretrained: bool = None, 
+                params: dict = None,
+                **kwargs):
 
-        if num_layers < 1:
-            raise ValueError(f"num_layers = {num_layers}, expected: num_layers > 0")
+        params = OmegaConf.create(params)
+        
+        self.opt = kwargs.get('opt', None)
+
+        if params.num_layers < 1:
+            raise ValueError(f"params.num_layers = {params.num_layers}, expected: params.num_layers > 0")
 
         super().__init__()
-        self.num_layers = num_layers
+        self.num_layers = params.num_layers
 
-        layers = [DoubleConv(input_channels, features_start)]
+        layers = [DoubleConv(params.in_channels, params.embed_dim)]
 
-        feats = features_start
-        for _ in range(num_layers - 1):
+        feats = params.embed_dim
+        for _ in range(self.num_layers - 1):
             layers.append(Down(feats, feats * 2))
             feats *= 2
 
-        for _ in range(num_layers - 1):
-            layers.append(Up(feats, feats // 2, bilinear))
+        for _ in range(self.num_layers - 1):
+            layers.append(Up(feats, feats // 2, params.bilinear))
             feats //= 2
 
         layers.append(nn.Conv2d(feats, num_classes, kernel_size=1))
 
         self.layers = nn.ModuleList(layers)
+
+        self.fc1 = nn.Linear(in_features = params.image_size*params.image_size*num_classes, out_features = params.hidden_dim)
+        self.fc2 = nn.Linear(in_features = params.hidden_dim, out_features = num_classes)
+
+        if pretrained:
+            logger.error("Loading pretrained weights")
+            self.load_state(s = 'unet_model_best.pth')
+            # Linear_head map the patch embeddings to the number of classes
+            self.model.linear_head = self.__set_head(params.embed_dim, params.hidden_dim, num_classes)
+        else:
+            logger.info("Training from scratch")
+
+        # Define the loss function
+        self.loss_fn = nn.CrossEntropyLoss()
+
+        # Define the accuracy metric
+        self.accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
 
     def forward(self, x: Tensor) -> Tensor:
         xi = [self.layers[0](x)]
@@ -64,28 +88,76 @@ class UNet(pl.LightningModule):
         for layer in self.layers[1 : self.num_layers]:
             xi.append(layer(xi[-1]))
         # Up path
-        for i, layer in enumerate(self.layers[self.num_layers : -1]):
+        for i, layer in enumerate(self.layers[self.num_layers :-1]):
             xi[-1] = layer(xi[-1], xi[-2 - i])
-        return self.layers[-1](xi[-1])
+        x = self.layers[-1](xi[-1])
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        return x
 
     def training_step(self, batch, batch_idx):
-        # Very simple training loop
-        x, y = batch
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log('train_loss', loss, on_step=True)
-        return loss
+        # Get the input and labels from the batch
+        inputs, labels = batch
+
+        # Forward pass
+        logits = self.forward(inputs)
+        
+        # Calculate the loss and accuracy
+        loss = self.loss_fn(logits, labels)
+        acc = self.accuracy(logits, labels)
+
+        # Log the loss and accuracy
+        self.log("train_loss", loss, sync_dist=True)
+        self.log("train_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
+        return logs
     
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        y_hat = torch.argmax(y_hat, dim=1)
-        acc = torchmetrics.Accuracy(y_hat, y)
-        self.log('val_acc', acc, on_epoch=True, prog_bar=True)
-        return acc
+        # Get the input and labels from the batch
+        inputs, labels = batch
+
+        # Forward pass
+        logits = self.forward(inputs)
+        
+        # Calculate the loss and accuracy
+        loss = self.loss_fn(logits, labels)
+        acc = self.accuracy(logits, labels)
+
+        # Log the loss and accuracy
+        self.log("val_loss", loss, sync_dist=True)
+        self.log("val_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
+        return logs
+    
+    def test_step(self, batch, batch_idx):
+        # Get the input and labels from the batch
+        inputs, labels = batch
+        
+        # Forward pass
+        logits = self.forward(inputs)
+        
+        # Calculate the loss and accuracy
+        loss = self.loss_fn(logits, labels)
+        acc = self.accuracy(logits, labels)
+
+        # Log the loss and accuracy
+        self.log("test_loss", loss, sync_dist=True)
+        self.log("test_acc", acc, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc}
+        return logs
         
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        if self.opt != None:
+            optimizer = torch.optim.AdamW(
+                self.parameters(), 
+                lr=self.opt.lr)
+        else:
+            optimizer = torch.optim.AdamW(self.parameters())
+            
         return optimizer
 
 

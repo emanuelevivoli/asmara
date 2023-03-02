@@ -64,7 +64,7 @@ target/
 *.rdb
 
 # Pycharm
-.idea
+.idea/
 
 # VS Code
 .vscode/
@@ -102,9 +102,16 @@ wandb/
 diffractsim/
 
 # others
-others
+others/
 
 # Output files
-outputs
+outputs/
 
-*.zip
+# Checkpoints
+.checkpoints/
+
+# pyenv
+shell/
+
+# compressed data files
+data.zip

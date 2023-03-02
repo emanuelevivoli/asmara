@@ -10,7 +10,7 @@ def threeclass(label:str)->int:
     # 2 -> archeology 
     # 1 -> mine
     # 0 -> other
-    return 1 if label == 'mine' else 2 if label == 'archeology' else 0
+    return 1 if label == 'mine' else 0 if label == 'archeology' else 2
 
 def fgclass(label:str)->int:
     # 14 -> knife
@@ -18,17 +18,17 @@ def fgclass(label:str)->int:
     # ...
     # 1 -> pmn1
     # 0 -> none
-    return int(label)
+    return int(label)-1
     
 def task_manager(task_name, row):
         
-    if task_name == 'bin':
+    if task_name == 'binary':
         label = twoclass(row['in_name'])
 
-    elif task_name == 'tri':
+    elif task_name == 'trinary':
         label = threeclass(row['in_name'])
 
-    elif task_name == 'fine-grain':
+    elif task_name == 'multi':
         label = fgclass(row['in_id'])
         
     else:
@@ -72,15 +72,16 @@ def if_null_create(output_path):
 
 
 def check_task_classes(cfg):
-    if cfg.data.task == 'bin':
+    if cfg.data.task == 'binary':
         if cfg.model.num_classes != 2:
             raise ValueError("The model is not configured for binary classification. Check the configuration file.")
-    elif cfg.data.task == 'tri':
+    elif cfg.data.task == 'trinary':
         if cfg.model.num_classes != 3:
             raise ValueError("The model is not configured for ternary classification. Check the configuration file.")
-    elif cfg.data.task == 'fine-grain':
-        if cfg.model.num_classes != 6:
-            raise ValueError("The model is not configured for fine-grained classification. Check the configuration file.")
+    elif cfg.data.task == 'multi':
+        print(cfg.model.num_classes)
+        if cfg.model.num_classes != 13:
+            raise ValueError("The model is not configured for multi classification. Check the configuration file.")
     else:
         raise ValueError("The task is not recognized. Check the configuration file.")
     

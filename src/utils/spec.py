@@ -1,8 +1,9 @@
-TASKS = ['bin','tri','fine-grain']
+TASKS = ['binary','trinary','multi']
+
 CLASS_NUMBER = {
-        "bin": 2,
-        "tri": 3,
-        "fine-grain": 5
+        "binary": 2,
+        "trinary": 3,
+        "multi": 13
     }
 
 locations = ['outdoor', 'indoor']

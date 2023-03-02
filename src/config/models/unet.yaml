@@ -1,0 +1,9 @@
+_target_: src.models.nets.unet.UNet
+
+params:
+  num_layers: 5
+  in_channels: 1
+  embed_dim: 64
+  image_size: 60
+  hidden_dim: 100
+  bilinear: False

@@ -6,10 +6,13 @@ from tqdm import tqdm
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 
-import random
 import numpy as np
 import pandas as pd
+import torch
+import torch.nn.functional as F
+
 from PIL import Image
+from src.data.process_holograms import objects_info
 from src.utils.data import if_null_create
 
 from src.utils.spec import *
@@ -20,12 +23,12 @@ from src.utils.struct import Holo, HoloInv
 # main get:
 # - format, a list of strings [if we want mixed hologram (npy), images (img), inversion (inv) and metadata (meta)]
 @click.command()
-@click.option('seed', '-s', type=int)
+@click.option('--interpolate', '-i', is_flag=True, help='If True, interpolated holograms are used')
 @click.option('indoor_filepath', '-idf', type=click.Path())
 @click.option('outdoor_filepath', '-odf', type=click.Path())
+@click.option('output_path', '-o', type=click.Path())
 @click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Format of the output files')
-@click.option('output_path', '-output', type=click.Path())
-def main(seed, indoor_filepath, outdoor_filepath, format, output_path):
+def main(interpolate, indoor_filepath, outdoor_filepath, output_path, format):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
@@ -35,8 +38,6 @@ def main(seed, indoor_filepath, outdoor_filepath, format, output_path):
     if indoor_filepath is None: indoor_filepath = interimpath
     if outdoor_filepath is None: outdoor_filepath = interimpath
     if output_path is None: output_path = processedpath
-    
-    splits_path = output_path / Path('splits')
 
     # if output_path does not exist, create it
     if_null_create(output_path)
@@ -56,38 +57,52 @@ def main(seed, indoor_filepath, outdoor_filepath, format, output_path):
         save_meta = 'meta' in format
     
     # Read indoor and outdoor CSV files
-    indoor_meta = pd.read_csv(metadatapath / Path('indoor.csv')).T.to_dict().values()
-    outdoor_data = pd.read_csv(metadatapath / Path('outdoor.csv')).T.to_dict().values()
+    indoor_df = pd.read_csv(metadatapath / Path('indoor.csv'))
+    outdoor_df = pd.read_csv(metadatapath / Path('outdoor.csv'))
 
-    # Set random seed for reproducibility
-    random.seed(seed)
-
-    # Set aside 10% of the data for testing
-    num_test = int(len(outdoor_data) * 0.1)
-    test_meta = random.sample(outdoor_data, num_test)
-    train_val_meta = [d for d in outdoor_data if d not in test_meta]
-
-    # Randomly sample 20% of the remaining data for validation
-    num_val = int(len(train_val_meta) * 0.2)
-    val_meta = random.sample(train_val_meta, num_val)
-    train_meta = [d for d in train_val_meta if d not in val_meta]
+    # Split indoor and outdoor data
+    indoor_meta = indoor_df.T.to_dict().values()
+    outdoor_meta = outdoor_df.T.to_dict().values()
 
     mixed_meta = []
 
     # Combine indoor and outdoor data
     for in_meta in tqdm(indoor_meta):
     
-        for out_meta in train_meta + val_meta + test_meta:
+        for out_meta in outdoor_meta:
             
             # mixing metadata
             meta = {}
             meta['mix_name'] = f'{in_meta["in_file_name"]}__out_{out_meta["out_file_name"]}'
             
+            if save_meta:
+                meta = {**meta, **in_meta, **out_meta}
+                mixed_meta.append(meta)
+
+            # check if at least one of the save_* is True
+            if not (save_npy or save_img or save_inv ):
+                continue
+
             # load holograms ( we need to add at the end "holo.npy")
             in_holo = np.load(hologramspath / Path('indoor') / Path(in_meta['in_file_name']+"_holo.npy"))
             out_holo = np.load(hologramspath / Path('outdoor') / Path(out_meta['out_file_name']+"_holo.npy"))
 
             mix_holo = Holo(in_holo) + Holo(out_holo)
+
+            if interpolate:
+                torch_holo = torch.from_numpy(mix_holo)
+                
+                # get real and imaginary part of the hologram
+                x_real = torch_holo.real.unsqueeze(0).unsqueeze(0)
+                x_imag = torch_holo.imag.unsqueeze(0).unsqueeze(0)
+                
+                # interpolate the hologram
+                rescaled_real = F.interpolate(x_real, size=(60, 60), mode='bilinear', align_corners=False)
+                rescaled_imag = F.interpolate(x_imag, size=(60, 60), mode='bilinear', align_corners=False)
+                
+                # fuse real and imaginary part
+                torch_holo = torch.complex(rescaled_real, rescaled_imag).squeeze(0).squeeze(0)
+                mix_holo = torch_holo.numpy()
 
             if save_npy:
                 if_null_create(output_path / Path('holograms'))
@@ -95,7 +110,7 @@ def main(seed, indoor_filepath, outdoor_filepath, format, output_path):
 
             if save_img:
                 if_null_create(output_path / Path('images'))
-                mix_img = Image.fromarray((mix_holo * 255).astype(np.uint8))
+                mix_img = Image.fromarray((mix_holo * 255).astype(np.uint8)) # ComplexWarning: cast to real discards the imaginary part
                 mix_img.save(output_path / Path('images') / Path(f'{meta["mix_name"]}.png'))
 
             if save_inv:
@@ -103,9 +118,6 @@ def main(seed, indoor_filepath, outdoor_filepath, format, output_path):
                 mix_inv = HoloInv(mix_holo)
                 np.save(output_path / Path('inversions') / Path(f'{meta["mix_name"]}_inv.npy'), mix_inv)
             
-            if save_meta:
-                meta = {**meta, **in_meta, **out_meta}
-                mixed_meta.append(meta)
 
     if save_meta:
         if_null_create(output_path / Path('meta'))
@@ -115,23 +127,6 @@ def main(seed, indoor_filepath, outdoor_filepath, format, output_path):
 
     print('[indoor + outdoor] MIX Done!')
 
-    # Shuffle the mixed data
-    random.shuffle(mixed_meta)
-
-    # Save the train, val, and test data to CSV files
-    header = ['mix_name'] + ['in_'+column for column in info['indoor']['columns']] + ['out_'+column for column in info['outdoor']['columns']]
-    train_df = pd.DataFrame(mixed_meta[:-num_val-num_test], columns=header)
-    val_df = pd.DataFrame(mixed_meta[-num_val-num_test:-num_test], columns=header)
-    test_df = pd.DataFrame(mixed_meta[-num_test:], columns=header)
-
-    # Save the splits
-    if_null_create(splits_path)
-
-    train_df.to_csv(splits_path / Path('train.csv'), index=False)
-    val_df.to_csv(splits_path / Path( 'val.csv'), index=False)
-    test_df.to_csv(splits_path / Path( 'test.csv'), index=False)
-
-    print('[train + val + test] CSV Done!')
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'

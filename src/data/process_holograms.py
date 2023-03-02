@@ -11,8 +11,7 @@ import os
 import numpy as np
 import pandas as pd
 
-# hologram processing
-import holopy as hp
+
 
 # image processing
 from PIL import Image
@@ -85,6 +84,8 @@ def create_inversion(img,
                     MEDIUM_INDEX = None,
                     WAVELENGTH = 15,
                     SPACING = 0.5 ):
+    # hologram processing
+    import holopy as hp
     
     assert MEDIUM_INDEX is not None, "MEDIUM_INDEX is not defined"
     

@@ -19,7 +19,6 @@ class LandmineDataset(torch.utils.data.Dataset):
                        meta_path: Path,
                        fold: str,
                        cfg: DictConfig,
-                       out_type: str = 'complex',
                        transform=None) -> None:
 
         self.data_path = data_path
@@ -31,7 +30,7 @@ class LandmineDataset(torch.utils.data.Dataset):
         self.csv = self.csv[~self.csv['in_id'].isin(self.cfg.data.remove)]
         self.task = cfg.data.task
 
-        self.out_type = out_type
+        self.out_type = cfg.data.out_type
         self.transform = transform
         
         
@@ -47,7 +46,9 @@ class LandmineDataset(torch.utils.data.Dataset):
         # data = (data - in_noise)
 
         # data.shape should be torch.Size([52, 62])
-        if data.shape[0] != 52 or data.shape[1] != 62:
+        if self.cfg.data.source != 'interps' and \
+            (data.shape[0] != 52 or data.shape[1] != 62):
+            
             real_data = torch.view_as_real(data) # [52, 61]
             real_data = real_data.permute(2, 0, 1).unsqueeze(0) # [1, 2, 52, 61]
             real_data = F.interpolate(real_data, size=(52, 62), mode='nearest') # [1, 2, 52, 62]
@@ -61,19 +62,25 @@ class LandmineDataset(torch.utils.data.Dataset):
             raise ValueError(f'task {self.task} is not supported !')
         
         # if needed (property self.out_type) extract real component
-        mix = (torch.real(data) if self.out_type=='real' else data).unsqueeze(0)
-        mix = torch.nan_to_num(mix)
+        
+        if self.out_type=='real':
+            mix = torch.real(data).unsqueeze(0)
+            mix = torch.nan_to_num(mix)
+        else:
+            mix = data.unsqueeze(0)
+    
         mix = mix.permute(*torch.arange(mix.ndim - 1, -1, -1))
 
 
         # mix.shape = torch.Size([62, 52, 1])
         # check dmeensions
-        if mix.shape[0] != 62:
-            raise ValueError(f'mix.shape[0] != 62, but {mix.shape[0]}')
-        if mix.shape[1] != 52:
-            raise ValueError(f'mix.shape[1] != 52, but {mix.shape[1]}')
-        if mix.shape[2] != 1:
-            raise ValueError(f'mix.shape[2] != 1, but {mix.shape[2]}')
+        if self.cfg.data.source != 'interps':
+            if mix.shape[0] != 62:
+                raise ValueError(f'mix.shape[0] != 62, but {mix.shape[0]}')
+            if mix.shape[1] != 52:
+                raise ValueError(f'mix.shape[1] != 52, but {mix.shape[1]}')
+            if mix.shape[2] != 1:
+                raise ValueError(f'mix.shape[2] != 1, but {mix.shape[2]}')
         
         # reshape the mix to have channels first
         mix = mix.permute(2, 0, 1)

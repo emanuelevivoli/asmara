@@ -82,7 +82,7 @@ def check_task_classes(cfg):
         if cfg.model.num_classes != 3:
             raise ValueError("The model is not configured for ternary classification. Check the configuration file.")
     elif cfg.data.task == 'multi':
-        print(cfg.model.num_classes)
+        print('num_classes:', cfg.model.num_classes)
         if cfg.model.num_classes != 13:
             raise ValueError("The model is not configured for multi classification. Check the configuration file.")
     else:

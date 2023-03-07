@@ -10,33 +10,41 @@ import numpy as np
 import pandas as pd
 
 from PIL import Image
-from src.data.process_holograms import objects_info
 from src.utils.data import if_null_create
 from src.utils.holo import create_inversion
 
 from src.utils.spec import *
 from src.utils.const import *
-from src.utils.struct import Holo, HoloInv
+from src.utils.struct import Holo
 
 
 # main get:
 # - format, a list of strings [if we want mixed hologram (npy), images (img), inversion (inv) and metadata (meta)]
 @click.command()
-@click.option('--interpolate', '-i', is_flag=True, help='If True, interpolated holograms are used')
-@click.option('indoor_filepath', '-idf', type=click.Path())
-@click.option('outdoor_filepath', '-odf', type=click.Path())
+@click.option('--interpolate', '-i', is_flag=True, help='If True, we interpolate images and obtain sqared 60x60 images')
 @click.option('output_path', '-o', type=click.Path())
 @click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Format of the output files')
-def main(interpolate, indoor_filepath, outdoor_filepath, output_path, format):
+def main(interpolate, output_path, format):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
     logger = logging.getLogger(__name__)
     logger.info('making final data set from interim data')
 
-    if indoor_filepath is None: indoor_filepath = interimpath
-    if outdoor_filepath is None: outdoor_filepath = interimpath
-    if output_path is None: output_path = processedpath
+    # if output_path is empty, and interpolate is True, we set output_path to inter_inversionspath
+    if output_path == None:
+        if interpolate:
+            output_path = processedpath / Path('interps')
+        else:
+            output_path = processedpath / Path('standard')
+
+    if interpolate:
+        holograms_path = inter_hologramspath
+        inversions_path = inter_inversionspath
+    else:
+        holograms_path = hologramspath
+        inversions_path = inversionspath
+    
 
     # if output_path does not exist, create it
     if_null_create(output_path)
@@ -82,17 +90,13 @@ def main(interpolate, indoor_filepath, outdoor_filepath, output_path, format):
             if not (save_npy or save_img or save_inv ):
                 continue
 
-            # load holograms ( we need to add at the end "holo.npy")
-            in_holo = np.load(hologramspath / Path('indoor') / Path(in_meta['in_file_name']+"_holo.npy"))
-            out_holo = np.load(hologramspath / Path('outdoor') / Path(out_meta['out_file_name']+"_holo.npy"))
+            # load holograms ( we needxto add at the end "holo.npy")
+            in_holo = np.load(holograms_path / Path('indoor') / Path(in_meta['in_file_name']+"_holo.npy"))
+            out_holo = np.load(holograms_path / Path('outdoor') / Path(out_meta['out_file_name']+"_holo.npy"))
 
             # creating Holo objects
             in_holo = Holo(in_holo)
             out_holo = Holo(out_holo)
-
-            if interpolate:
-                in_holo = in_holo.interpolate()
-                out_holo = out_holo.interpolate()
 
             mix_holo = Holo(in_holo + out_holo)
 
@@ -106,15 +110,10 @@ def main(interpolate, indoor_filepath, outdoor_filepath, output_path, format):
                 mix_img.save(output_path / Path('images') / Path(f'{meta["mix_name"]}.png'))
 
             if save_inv:
-                if_null_create(output_path / Path('inversions'))
-                
-                if interpolate:
-                    in_holo_inv = create_inversion(imagespath / Path('indoor') / Path(f'{in_meta["in_file_name"]}.png'), MEDIUM_INDEX = 1)
-                    out_holo_inv = create_inversion(imagespath / Path('outdoor') / Path(f'{out_meta["out_file_name"]}.png'), MEDIUM_INDEX = 4)
-                else:
-                    # load holograms ( we need to add at the end "holo.npy")
-                    in_holo_inv = np.load(inversionspath / Path('indoor') / Path(in_meta['in_file_name']+"_inv.npy"))
-                    out_holo_inv = np.load(inversionspath / Path('outdoor') / Path(out_meta['out_file_name']+"_inv.npy"))
+                if_null_create(output_path / Path('inversions'))    
+
+                in_holo_inv = np.load(inversions_path / Path('indoor') / Path(in_meta['in_file_name']+"_inv.npy"))
+                out_holo_inv = np.load(inversions_path / Path('outdoor') / Path(out_meta['out_file_name']+"_inv.npy"))
 
                 # creating Holo objects
                 in_holo = Holo(in_holo_inv)

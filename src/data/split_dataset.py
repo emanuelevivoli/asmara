@@ -14,8 +14,6 @@ from PIL import Image
 from src.data.process_holograms import objects_info
 from src.utils.data import if_null_create
 
-from sklearn.model_selection import train_test_split
-
 from src.utils.spec import *
 from src.utils.const import *
 

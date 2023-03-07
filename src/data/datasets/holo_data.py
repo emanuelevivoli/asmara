@@ -39,7 +39,6 @@ class LandmineDataset(torch.utils.data.Dataset):
         row = self.csv.iloc[index]
         suffix = '_inv' if self.cfg.data.dataset == 'inversions' else ''
         data = np.load(self.data_path / f"{row['mix_name']}{suffix}.npy", allow_pickle=True)
-        print(type(data))
         data = torch.from_numpy(data).cfloat()
         
         # todo: remove noise, if present, based on the  file

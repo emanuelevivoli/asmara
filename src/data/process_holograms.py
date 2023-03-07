@@ -22,6 +22,7 @@ from src.utils.const import *
 from src.utils.data import create_annotation, objects_info
 from src.utils.holo import create_inversion
 from src.utils.spec import locations, info, params
+from src.utils.struct import Holo
 
 def matlab_settings():
     # matlab imports
@@ -46,17 +47,29 @@ def create_folder(path, location=None):
 # - format, a list of strings
 # - location, a string
 @click.command()
+@click.option('--interpolate', '-i', is_flag=True, help='If True, we interpolate images and obtain sqared 60x60 images')
 @click.option('--precompute', '-p', is_flag=True, help='If True, matlab is not needed')
 @click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Format of the output files')
 @click.option('--location', '-l', type=click.Choice(locations), help='Location of the scans')
 @click.option('--test', '-t', is_flag=True, help='Only test 10 elements')
-def main(precompute, format, location, test):
+def main(interpolate, precompute, format, location, test):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
 
     logger = logging.getLogger(__name__)
     logger.info('making final data set from raw data')
+
+    if interpolate:
+        holograms_path = inter_hologramspath
+        images_path = inter_imagespath
+        inversions_path = inter_inversionspath
+        # additionally, if interpolate, it is also precompute
+        precompute = True
+    else:
+        holograms_path = hologramspath
+        images_path = imagespath
+        inversions_path = inversionspath
 
     # if precompute is True, matlab is not needed
     if not precompute:
@@ -88,11 +101,12 @@ def main(precompute, format, location, test):
         metadata = []
         
         names = os.listdir( os.path.join(datarawpath, location) )
-        
+
         # create folder if not exists
-        if save_npy: create_folder(hologramspath, location)
-        if save_img: create_folder(imagespath, location)
-        if save_inv: create_folder(inversionspath, location)
+        if save_npy: create_folder(holograms_path, location)
+        if save_img: create_folder(images_path, location)
+        if save_inv: create_folder(inversions_path, location)
+
         if save_meta: create_folder(metadatapath)
 
         # instead of doing this:
@@ -137,10 +151,17 @@ def main(precompute, format, location, test):
 
                     if save_npy:
                         # save numpy arrays to file
-                        np.save(file=Path(hologramspath) / Path(location) / Path(f'{name}_holo.npy'), arr=np_Hfill)
+                        np.save(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'), arr=np_Hfill)
                 else:
-                    # load numpy arrays from file
-                    np_Hfill = np.load(file=Path(hologramspath) / Path(location) / Path(f'{name}_holo.npy'))
+
+                    if interpolate:
+                        standard_holograms_path = hologramspath
+                        np_Hfill = np.load(file=Path(standard_holograms_path) / Path(location) / Path(f'{name}_holo.npy'))
+                        np_Hfill = Holo(np_Hfill).interpolate().hologram
+                    else:
+                        # load numpy arrays from file
+                        np_Hfill = np.load(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'))
+                        
 
                 # convert numpy arrays to image
                 np_Hfill = np.abs(np_Hfill)
@@ -149,11 +170,11 @@ def main(precompute, format, location, test):
 
                 if save_img:
                     # save image to file
-                    img.save(os.path.join(imagespath, location, f'{name}.png'))
+                    img.save(os.path.join(images_path, location, f'{name}.png'))
                 
                 if save_inv:
-                    inversion = create_inversion(os.path.join(imagespath, location, f'{name}.png'), MEDIUM_INDEX = params[location]['MEDIUM_INDEX'], WAVELENGTH = 15, SPACING = 0.5 )
-                    np.save(file= Path(inversionspath) / Path(location) / Path(f'{name}_inv.npy'), arr=inversion)
+                    inversion = create_inversion(os.path.join(images_path, location, f'{name}.png'), MEDIUM_INDEX = params[location]['MEDIUM_INDEX'], WAVELENGTH = 15, SPACING = 0.5 )
+                    np.save(file= Path(inversions_path) / Path(location) / Path(f'{name}_inv.npy'), arr=inversion)
 
                 # add info to metadata
                 metadata.append(annotation_obj)

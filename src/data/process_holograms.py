@@ -158,6 +158,8 @@ def main(interpolate, precompute, format, location, test):
                         standard_holograms_path = hologramspath
                         np_Hfill = np.load(file=Path(standard_holograms_path) / Path(location) / Path(f'{name}_holo.npy'))
                         np_Hfill = Holo(np_Hfill).interpolate().hologram
+                        if save_npy:
+                            np.save(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'), arr=np_Hfill)
                     else:
                         # load numpy arrays from file
                         np_Hfill = np.load(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'))

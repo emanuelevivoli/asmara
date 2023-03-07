@@ -1,0 +1,38 @@
+program: src/models/train_model.py
+method: bayes
+metric:
+  goal: maximize
+  name: train_f1
+parameters:
+  data.task:
+    values:
+      - binary
+      - trinary
+      - multi
+    distribution: categorical
+  data.dataset:
+    values:
+      - holograms
+    distribution: categorical
+  model.name:
+    values:
+      - resnet
+      - unet
+      - simplevit
+      - effnet
+    distribution: categorical
+  data.batch_size:
+    values: [8, 16, 24]
+    distribution: categorical
+  optimizer.lr:
+    values: [2e-3, 1e-3, 5e-4, 2e-4, 1e-4, 5e-5]
+    distribution: categorical
+  callback.patience:
+    values: 
+      - 20
+    distribution: categorical
+
+command:
+  - python
+  - ${program}
+  - ${args_no_hyphens}

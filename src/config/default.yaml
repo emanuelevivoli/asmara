@@ -29,7 +29,6 @@ model:
 
 trainer: 
   accelerator: 'gpu'
-  devices: 2
   max_epochs: 1000
 
 custom_trainer:
@@ -39,4 +38,6 @@ custom_trainer:
 optimizer:
   lr: 1e-3
   momentum: 0.875
-  
+
+callback:
+  patience: 3

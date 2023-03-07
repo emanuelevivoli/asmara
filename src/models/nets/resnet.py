@@ -60,7 +60,13 @@ class ResNet50(pl.LightningModule):
         self.fc = nn.Linear(in_features=1000, out_features=num_classes)
         
         self.loss_fn = nn.CrossEntropyLoss()
+
+        # todo: remove metrics from model and deal in callbacks
         self.accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)   
+        self.f1_score = torchmetrics.F1Score(task="multiclass", num_classes=num_classes)   
+
+        # todo: remove this and use default 'hyper_params'
+        self.save_hyperparameters()
 
 
     def _load_pretrained_weights(self, previous_layer):
@@ -79,60 +85,36 @@ class ResNet50(pl.LightningModule):
         x = self.fc(x)
         return x
 
-    def training_step(self, batch, batch_idx):
+    def step_wrapper(self, batch, batch_idx, mode):
+
         # Get the input and labels from the batch
         inputs, labels = batch
         
         # Forward pass
         logits = self.forward(inputs)
-
-        # Calculate the loss and accuracy
-        loss = self.loss_fn(logits, labels)
-        acc = self.accuracy(logits, labels)
-
-        # Log the loss and accuracy
-        self.log("train_loss", loss, sync_dist=True)
-        self.log("train_acc", acc, sync_dist=True)
-
-        logs = {"loss": loss, "acc": acc}
-        return logs
-
-    def validation_step(self, batch, batch_idx):
-        # Get the input and labels from the batch
-        inputs, labels = batch
         
-        # Forward pass
-        logits = self.forward(inputs)
-
         # Calculate the loss and accuracy
         loss = self.loss_fn(logits, labels)
         acc = self.accuracy(logits, labels)
+        f1 = self.f1_score(logits, labels)
 
         # Log the loss and accuracy
-        self.log("val_loss", loss, sync_dist=True)
-        self.log("val_acc", acc, sync_dist=True)
+        self.log(f"{mode}_loss", loss, sync_dist=True)
+        self.log(f"{mode}_acc", acc, sync_dist=True)
+        self.log(f"{mode}_f1", f1, sync_dist=True)
 
-        logs = {"loss": loss, "acc": acc}
+        logs = {"loss": loss, "acc": acc, "f1": f1}
         return logs
     
+    def training_step(self, batch, batch_idx):
+        return self.step_wrapper(batch, batch_idx, mode='train')
+
+    def validation_step(self, batch, batch_idx):
+        return self.step_wrapper(batch, batch_idx, mode='val')
+
     def test_step(self, batch, batch_idx):
-        # Get the input and labels from the batch
-        inputs, labels = batch
-        
-        # Forward pass
-        logits = self.forward(inputs)
-
-        # Calculate the loss and accuracy
-        loss = self.loss_fn(logits, labels)
-        acc = self.accuracy(logits, labels)
-
-        # Log the loss and accuracy
-        self.log("test_loss", loss, sync_dist=True)
-        self.log("test_acc", acc, sync_dist=True)
-
-        logs = {"loss": loss, "acc": acc}
-        return logs
-
+        return self.step_wrapper(batch, batch_idx, mode='test')
+    
     def configure_optimizers(self):
         # Use SGD with a learning rate of 0.001 and momentum of 0
         if self.opt != None:

@@ -39,6 +39,8 @@ class UNet(pl.LightningModule):
                 pretrained: bool = None, 
                 params: dict = None,
                 **kwargs):
+        
+        super(UNet, self).__init__()
 
         params = OmegaConf.create(params)
         
@@ -69,18 +71,20 @@ class UNet(pl.LightningModule):
         self.fc2 = nn.Linear(in_features = params.hidden_dim, out_features = num_classes)
 
         if pretrained:
-            logger.error("Loading pretrained weights")
-            self.load_state(s = 'unet_model_best.pth')
-            # Linear_head map the patch embeddings to the number of classes
-            self.model.linear_head = self.__set_head(params.embed_dim, params.hidden_dim, num_classes)
+            logger.info("Loading pretrained weights not supported for SimpleViT")
+            raise NotImplementedError
         else:
             logger.info("Training from scratch")
 
-        # Define the loss function
+        # Define the loss function and metrics
         self.loss_fn = nn.CrossEntropyLoss()
 
-        # Define the accuracy metric
+        # todo: remove metrics from model and deal in callbacks
         self.accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+        self.f1_score = torchmetrics.F1Score(task="multiclass", num_classes=num_classes)   
+
+        # todo: remove this and use default 'hyper_params'
+        self.save_hyperparameters()
 
     def forward(self, x: Tensor) -> Tensor:
         xi = [self.layers[0](x)]
@@ -96,60 +100,36 @@ class UNet(pl.LightningModule):
         x = self.fc2(x)
         return x
 
+    def step_wrapper(self, batch, batch_idx, mode):
+
+        # Get the input and labels from the batch
+        inputs, labels = batch
+        
+        # Forward pass
+        logits = self.forward(inputs)
+        
+        # Calculate the loss and accuracy
+        loss = self.loss_fn(logits, labels)
+        acc = self.accuracy(logits, labels)
+        f1 = self.f1_score(logits, labels)
+
+        # Log the loss and accuracy
+        self.log(f"{mode}_loss", loss, sync_dist=True)
+        self.log(f"{mode}_acc", acc, sync_dist=True)
+        self.log(f"{mode}_f1", f1, sync_dist=True)
+
+        logs = {"loss": loss, "acc": acc, "f1": f1}
+        return logs
+    
     def training_step(self, batch, batch_idx):
-        # Get the input and labels from the batch
-        inputs, labels = batch
+        return self.step_wrapper(batch, batch_idx, mode='train')
 
-        # Forward pass
-        logits = self.forward(inputs)
-        
-        # Calculate the loss and accuracy
-        loss = self.loss_fn(logits, labels)
-        acc = self.accuracy(logits, labels)
-
-        # Log the loss and accuracy
-        self.log("train_loss", loss, sync_dist=True)
-        self.log("train_acc", acc, sync_dist=True)
-
-        logs = {"loss": loss, "acc": acc}
-        return logs
-    
     def validation_step(self, batch, batch_idx):
-        # Get the input and labels from the batch
-        inputs, labels = batch
+        return self.step_wrapper(batch, batch_idx, mode='val')
 
-        # Forward pass
-        logits = self.forward(inputs)
-        
-        # Calculate the loss and accuracy
-        loss = self.loss_fn(logits, labels)
-        acc = self.accuracy(logits, labels)
-
-        # Log the loss and accuracy
-        self.log("val_loss", loss, sync_dist=True)
-        self.log("val_acc", acc, sync_dist=True)
-
-        logs = {"loss": loss, "acc": acc}
-        return logs
-    
     def test_step(self, batch, batch_idx):
-        # Get the input and labels from the batch
-        inputs, labels = batch
-        
-        # Forward pass
-        logits = self.forward(inputs)
-        
-        # Calculate the loss and accuracy
-        loss = self.loss_fn(logits, labels)
-        acc = self.accuracy(logits, labels)
-
-        # Log the loss and accuracy
-        self.log("test_loss", loss, sync_dist=True)
-        self.log("test_acc", acc, sync_dist=True)
-
-        logs = {"loss": loss, "acc": acc}
-        return logs
-        
+        return self.step_wrapper(batch, batch_idx, mode='test')
+    
     def configure_optimizers(self):
         if self.opt != None:
             optimizer = torch.optim.AdamW(

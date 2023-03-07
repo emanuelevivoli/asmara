@@ -37,7 +37,9 @@ class LandmineDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         # Returns (xb, yb) pair, after applying all transformations on the audio file.
         row = self.csv.iloc[index]
-        data = np.load(self.data_path / f"{row['mix_name']}.npy")
+        suffix = '_inv' if self.cfg.data.dataset == 'inversions' else ''
+        data = np.load(self.data_path / f"{row['mix_name']}{suffix}.npy", allow_pickle=True)
+        print(type(data))
         data = torch.from_numpy(data).cfloat()
         
         # todo: remove noise, if present, based on the  file

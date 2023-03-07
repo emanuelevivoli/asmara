@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+import os
 import torch
 import torchvision.transforms as transforms
 
@@ -11,6 +11,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 import hydra
 from pathlib import Path
+from datetime import datetime
 from omegaconf import DictConfig, OmegaConf
 
 from src.data.datasets.holo_data import LandmineDataset
@@ -20,24 +21,26 @@ from src.utils.const import BASEPATH
 from src.utils.data import check_task_classes
 from src.utils.model import instantiate_from_config
 
-
 import logging
 logger = logging.getLogger(__name__)
 
 wandb_logger = WandbLogger()
 
-@hydra.main(version_base=None, config_path='../config', config_name='default')
+@hydra.main(version_base=None, config_path=f'{BASEPATH}/src/config', config_name='default')
 def train(cfg: DictConfig):
     # The decorator is enough to let Hydra load the configuration file.
     
     assert cfg.seed != None, "Please specify a seed. [0, 42, 100, 333]"
     assert cfg.data.dataset != None, "Please specify a dataset in the config file. [holograms, inversion]"
     assert cfg.data.task != None, "Please specify a task in the config file. [binary, trinary, multi]"
-    assert cfg.model.name != None, "Please specify model name. [ResNet50, SimpleViT, UNet]"
+    assert cfg.model.name != None, "Please specify model name. [ResNet50, SimpleViT, UNet, SimpleViT3d]"
 
     if cfg.data.source == 'interps': logger.info("Using interpolated holograms [60x60]")
 
-    model_cfg = OmegaConf.load(f"src/config/models/{cfg.model.name}.yaml")
+    model_cfg = OmegaConf.load(f"{BASEPATH}/src/config/models/{cfg.model.name}.yaml")
+    
+    # logging.info(f"I dont care about patience {cfg.callback.patience}, it will be set to -> 10")
+    # cfg.callback.patience = 10
     
     cfg.model = OmegaConf.merge(cfg.model, model_cfg)
 
@@ -89,37 +92,64 @@ def train(cfg: DictConfig):
     # Initialize the network
     model = instantiate_from_config(cfg.model, cfg.optimizer)
     
-    # callbacks
-    early_stop_callback = EarlyStopping(monitor='val_loss', patience=3)
-    checkpoint_callback = ModelCheckpoint(
-        monitor='val_loss',
-        dirpath=f'{BASEPATH}/.checkpoints/{cfg.model.name}/{cfg.data.task}/{cfg.seed}-{cfg.data.dataset}/',
-        filename='{epoch:02d}-{val_loss:.2f}',
-        save_top_k=3,
-        mode='min'
-    )
+    # set the devices from the visible gpus
+    if cfg.trainer.accelerator == 'gpu':
+        # check available gpus
+        gpus = os.environ.get('CUDA_VISIBLE_DEVICES')
+        if gpus is None: devices = 2
+        else: devices = len(gpus.split(','))
+    else:
+        devices = None
 
+    # set the strategy
+    if cfg.custom_trainer.strategy == 'ddp' and \
+        cfg.custom_trainer.find_unused_parameters == False:
+        strategy = DDPStrategy(find_unused_parameters=False) 
+    else:
+        strategy = 'ddp'
+
+    # add timing to the folder name
+    now = datetime.now()
+
+    # callbacks
+    early_stop_callback = EarlyStopping(monitor='val_f1', patience=cfg.callback.patience, mode='max')
+    checkpoint_callback = ModelCheckpoint(
+        monitor='val_f1',
+        # add destination folder with timing
+        dirpath=f'{BASEPATH}/.checkpoints/{cfg.model.name}/{cfg.data.task}/{cfg.seed}-{cfg.data.dataset}-{cfg.data.batch_size}-{cfg.optimizer.lr}/{now.strftime("%d-%m-%Y-%H-%M-%S")}',
+        filename='{epoch:02d}-{val_loss:.2f}-{val_f1:.2f}',
+        save_top_k=3,
+        mode='max'
+    )
+    
+    # todo: add metrics callback
+    # metrics_callback = MetricsCallback()
 
     # popolate the config trainer with configurations
     trainer = pl.Trainer(
         **cfg.trainer, 
+        devices=devices,
+        deterministic=True,
         # when strategy:'ddp' and find_unused_parameters:False, 
-        strategy= DDPStrategy(find_unused_parameters=False) 
-            if cfg.custom_trainer.strategy == 'ddp' and 
-                cfg.custom_trainer.find_unused_parameters == False 
-            else 'ddp',
-        logger = wandb_logger,
-        callbacks=[early_stop_callback, checkpoint_callback],
+        strategy=strategy,
+        logger=wandb_logger,
+        callbacks=[
+            early_stop_callback, 
+            checkpoint_callback,
+            # metrics_callback
+        ],
     )
     
     trainer.fit(model, train_loader, val_loader)
+    trainer.test(model, dataloaders=test_loader)
 
     # Load the best checkpoint
-    best_checkpoint_path = checkpoint_callback.best_model_path
-    model = model.load_from_checkpoint(best_checkpoint_path)
+    best_checkpoint_path = trainer.checkpoint_callback.best_model_path
+    # model = model.load_from_checkpoint(best_checkpoint_path)
 
     # Test the network
-    trainer.test(model, test_loader)
+    print(f"Loading best checkpoint from {best_checkpoint_path}")
+    trainer.test(dataloaders=test_loader, ckpt_path=best_checkpoint_path)
 
 if __name__ == "__main__":
     train()

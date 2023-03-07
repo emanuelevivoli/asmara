@@ -7,12 +7,12 @@ import torchmetrics
 import torch.nn as nn
 
 import pytorch_lightning as pl
-from vit_pytorch import SimpleViT as sViT
+from vit_pytorch.simple_vit_3d import SimpleViT as sViT3d
 
 import logging
 logger = logging.getLogger(__name__)
 
-class SimpleViT(pl.LightningModule):
+class SimpleViT3d(pl.LightningModule):
     """ Simple ViT model for classification tasks.
     """
 
@@ -23,13 +23,13 @@ class SimpleViT(pl.LightningModule):
                 params:dict = None,
                 **kwargs):
 
-        super(SimpleViT, self).__init__()
+        super(SimpleViT3d, self).__init__()
 
         params = OmegaConf.create(params)
 
         self.opt = kwargs.get('opt', None)
 
-        self.model = sViT(
+        self.model = sViT3d(
             num_classes = num_classes,
             image_size = params.image_size,
             patch_size = params.patch_size,
@@ -41,7 +41,7 @@ class SimpleViT(pl.LightningModule):
         )
         
         if pretrained:
-            logger.info("Loading pretrained weights not supported for SimpleViT")
+            logger.info("Loading pretrained weights not supported for SimpleViT3d")
             raise NotImplementedError
         else:
             logger.info("Training from scratch")

@@ -1,0 +1,13 @@
+_target_: src.models.nets.simplevit.SimpleViT3d
+
+params:
+  image_size: 60
+  image_patch_size: 15
+  frames: 40
+  frame_patch_size: 5
+  in_channels: 1
+  embed_dim: 1024 
+  num_heads: 16
+  num_layers: 6
+  mlp_dim: 2048
+  hidden_dim: 100

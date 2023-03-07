@@ -8,12 +8,11 @@ from dotenv import find_dotenv, load_dotenv
 
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn.functional as F
 
 from PIL import Image
 from src.data.process_holograms import objects_info
 from src.utils.data import if_null_create
+from src.utils.holo import create_inversion
 
 from src.utils.spec import *
 from src.utils.const import *
@@ -87,36 +86,42 @@ def main(interpolate, indoor_filepath, outdoor_filepath, output_path, format):
             in_holo = np.load(hologramspath / Path('indoor') / Path(in_meta['in_file_name']+"_holo.npy"))
             out_holo = np.load(hologramspath / Path('outdoor') / Path(out_meta['out_file_name']+"_holo.npy"))
 
-            mix_holo = Holo(in_holo) + Holo(out_holo)
+            # creating Holo objects
+            in_holo = Holo(in_holo)
+            out_holo = Holo(out_holo)
 
             if interpolate:
-                torch_holo = torch.from_numpy(mix_holo)
-                
-                # get real and imaginary part of the hologram
-                x_real = torch_holo.real.unsqueeze(0).unsqueeze(0)
-                x_imag = torch_holo.imag.unsqueeze(0).unsqueeze(0)
-                
-                # interpolate the hologram
-                rescaled_real = F.interpolate(x_real, size=(60, 60), mode='bilinear', align_corners=False)
-                rescaled_imag = F.interpolate(x_imag, size=(60, 60), mode='bilinear', align_corners=False)
-                
-                # fuse real and imaginary part
-                torch_holo = torch.complex(rescaled_real, rescaled_imag).squeeze(0).squeeze(0)
-                mix_holo = torch_holo.numpy()
+                in_holo = in_holo.interpolate()
+                out_holo = out_holo.interpolate()
+
+            mix_holo = Holo(in_holo + out_holo)
 
             if save_npy:
                 if_null_create(output_path / Path('holograms'))
-                np.save(output_path / Path('holograms') / Path(f'{meta["mix_name"]}.npy'), mix_holo)    
+                mix_holo.save( path = output_path / Path('holograms') / Path(f'{meta["mix_name"]}.npy'))    
 
             if save_img:
                 if_null_create(output_path / Path('images'))
-                mix_img = Image.fromarray((mix_holo * 255).astype(np.uint8)) # ComplexWarning: cast to real discards the imaginary part
+                mix_img = Image.fromarray((mix_holo.hologram * 255).astype(np.uint8)) # ComplexWarning: cast to real discards the imaginary part
                 mix_img.save(output_path / Path('images') / Path(f'{meta["mix_name"]}.png'))
 
             if save_inv:
                 if_null_create(output_path / Path('inversions'))
-                mix_inv = HoloInv(mix_holo)
-                np.save(output_path / Path('inversions') / Path(f'{meta["mix_name"]}_inv.npy'), mix_inv)
+                
+                if interpolate:
+                    in_holo_inv = create_inversion(imagespath / Path('indoor') / Path(f'{in_meta["in_file_name"]}.png'), MEDIUM_INDEX = 1)
+                    out_holo_inv = create_inversion(imagespath / Path('outdoor') / Path(f'{out_meta["out_file_name"]}.png'), MEDIUM_INDEX = 4)
+                else:
+                    # load holograms ( we need to add at the end "holo.npy")
+                    in_holo_inv = np.load(inversionspath / Path('indoor') / Path(in_meta['in_file_name']+"_inv.npy"))
+                    out_holo_inv = np.load(inversionspath / Path('outdoor') / Path(out_meta['out_file_name']+"_inv.npy"))
+
+                # creating Holo objects
+                in_holo = Holo(in_holo_inv)
+                out_holo = Holo(out_holo_inv)
+
+                mix_inv = Holo(in_holo + out_holo)
+                mix_inv.save(path= output_path / Path('inversions') / Path(f'{meta["mix_name"]}_inv.npy'))
             
 
     if save_meta:

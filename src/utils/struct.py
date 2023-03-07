@@ -1,4 +1,6 @@
 import numpy as np
+import torch
+import torch.nn.functional as F
 
 # define a class for holograms
 class Holo:
@@ -21,11 +23,32 @@ class Holo:
             else: self.hologram = self.reshape(self.hologram, other.hologram.shape)
                        
         return self.hologram + other.hologram
+
+    # define the save operation for a generic Hologram, given a path
+    def save(self, path):
+        np.save(path, self.hologram)
+        return self
     
     # define the reshape operation for a generic Hologram, given a shape
     def reshape(self, hologram, shape):
         hologram = np.resize(hologram, shape)
         return hologram
+    
+    def interpolate(self, size=(60, 60)):
+        torch_holo = torch.from_numpy(self.hologram)
+                
+        # get real and imaginary part of the hologram
+        x_real = torch_holo.real.unsqueeze(0).unsqueeze(0)
+        x_imag = torch_holo.imag.unsqueeze(0).unsqueeze(0)
+                
+        # interpolate the hologram
+        rescaled_real = F.interpolate(x_real, size=size, mode='bilinear', align_corners=False)
+        rescaled_imag = F.interpolate(x_imag, size=size, mode='bilinear', align_corners=False)
+                
+        # fuse real and imaginary part
+        torch_holo = torch.complex(rescaled_real, rescaled_imag).squeeze(0).squeeze(0)
+        self.hologram = torch_holo.numpy()
+        return self
 
 # there is no need to define a class for images
 

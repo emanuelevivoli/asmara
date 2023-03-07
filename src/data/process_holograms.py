@@ -19,6 +19,8 @@ from PIL import Image
 # utils
 from tqdm.auto import tqdm
 from src.utils.const import *
+from src.utils.data import create_annotation, objects_info
+from src.utils.holo import create_inversion
 from src.utils.spec import locations, info, params
 
 def matlab_settings():
@@ -30,76 +32,6 @@ def matlab_settings():
     s = eng.genpath(os.path.join(BASEPATH,'matlab'))
     eng.addpath(s, nargout=0)
 
-def objects_info(filename='indoor_objects.csv', key='id', columns=['name', 'classification']):
-    assert len(columns) >= 2
-    df = pd.read_csv(Path(datarawpath) / Path(filename))
-    df_dict = {k: (v1, v2) for k, (v1, v2) in zip(
-        df[key], zip(df[columns[0]], df[columns[1]]))}
-    return df, df_dict
-
-def create_annotation(name, info, location, df_dict):
-    
-    indexes = info[location]['indexes']
-    keys = info[location]['keys']
-    prefix = info[location]['prefix']
-    
-    name_list = name.split('_')
-    
-    obj = {}
-    for c_index, c_key in zip(indexes, keys):
-        obj[f'{prefix}_{c_key}'] = name_list[c_index]
-
-    if len(name_list) > len(indexes):
-        if location == 'indoor':
-            inclination = 20
-        else:
-            raise ValueError(f'Additional info not found for {name}')
-    else:
-        if location == 'indoor':
-            inclination = 0
-        else:
-            additional = None
-
-    obj[f'{prefix}_location'] = location        
-    obj[f'{prefix}_file_name'] = name
-
-    if location == 'indoor':
-        obj[f'{prefix}_distance_from_source'] = 8 if obj[f'{prefix}_distance_from_source'] == 'low' else 4 if obj[f'{prefix}_distance_from_source'] == 'bas' else None
-        obj[f'{prefix}_inclination'] = inclination
-        category_, name_ = df_dict.get(int(obj[f'{prefix}_id']), (None, None))
-        
-        # name = "pmn-4"
-        obj[f'{prefix}_name'] = name_
-    else:
-        category_ = 'ground-smarta'
-        obj[f'{prefix}_additional'] = additional
-    
-    # category = "mine"
-    obj[f'{prefix}_category'] = category_
-
-    return obj
-
-
-def create_inversion(img,
-                    MEDIUM_INDEX = None,
-                    WAVELENGTH = 15,
-                    SPACING = 0.5 ):
-    # hologram processing
-    import holopy as hp
-    
-    assert MEDIUM_INDEX is not None, "MEDIUM_INDEX is not defined"
-    
-    # load image from file
-    raw_holo = hp.load_image(img, 
-                            medium_index=MEDIUM_INDEX, 
-                            illum_wavelen=WAVELENGTH,
-                            illum_polarization=(1,0), 
-                            spacing=SPACING)
-                        
-    zstack = np.linspace(0, 30, 61)
-    rec_vol = hp.propagate(raw_holo, zstack)
-
-    return rec_vol
 
 def create_folder(path, location=None):
     if not os.path.exists(path):

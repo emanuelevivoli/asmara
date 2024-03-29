@@ -129,7 +129,6 @@ def train(cfg: DictConfig):
     trainer = pl.Trainer(
         **cfg.trainer, 
         devices=devices,
-        deterministic=True,
         # when strategy:'ddp' and find_unused_parameters:False, 
         strategy=strategy,
         logger=wandb_logger,

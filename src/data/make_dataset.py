@@ -17,6 +17,8 @@ from src.utils.spec import *
 from src.utils.const import *
 from src.utils.struct import Holo
 
+#! MAGIC NUMBER
+ALPHA = 0.128
 
 # main get:
 # - format, a list of strings [if we want mixed hologram (npy), images (img), inversion (inv) and metadata (meta)]
@@ -34,9 +36,9 @@ def main(interpolate, output_path, format):
     # if output_path is empty, and interpolate is True, we set output_path to inter_inversionspath
     if output_path == None:
         if interpolate:
-            output_path = processedpath / Path('interps')
+            output_path = new_processedpath / Path('interps')
         else:
-            output_path = processedpath / Path('standard')
+            output_path = new_processedpath / Path('standard')
 
     if interpolate:
         holograms_path = inter_hologramspath
@@ -98,7 +100,7 @@ def main(interpolate, output_path, format):
             in_holo = Holo(in_holo)
             out_holo = Holo(out_holo)
 
-            mix_holo = Holo(in_holo + out_holo)
+            mix_holo = Holo(ALPHA*in_holo + (1-ALPHA)*out_holo)
 
             if save_npy:
                 if_null_create(output_path / Path('holograms'))
@@ -119,7 +121,7 @@ def main(interpolate, output_path, format):
                 in_holo = Holo(in_holo_inv)
                 out_holo = Holo(out_holo_inv)
 
-                mix_inv = Holo(in_holo + out_holo)
+                mix_inv = Holo(ALPHA*in_holo + (1-ALPHA)*out_holo)
                 mix_inv.save(path= output_path / Path('inversions') / Path(f'{meta["mix_name"]}_inv.npy'))
             
 

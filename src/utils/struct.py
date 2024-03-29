@@ -23,7 +23,18 @@ class Holo:
             else: self.hologram = self.reshape(self.hologram, other.hologram.shape)
                        
         return self.hologram + other.hologram
+    
+    def __mul__(self, scalar):
+        """Multiply the hologram by a scalar and return a new Holo object."""
+        if not isinstance(scalar, (int, float)):
+            raise TypeError("Multiplication only supports int or float scalar types")
+        new_hologram = self.hologram * scalar
+        return Holo(new_hologram)
 
+    def __rmul__(self, scalar):
+        """Handle multiplication when Holo is the right operand."""
+        return self.__mul__(scalar)
+    
     # define the save operation for a generic Hologram, given a path
     def save(self, path):
         np.save(path, self.hologram)

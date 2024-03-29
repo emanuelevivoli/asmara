@@ -72,7 +72,6 @@ class LandmineDataset(torch.utils.data.Dataset):
     
         mix = mix.permute(*torch.arange(mix.ndim - 1, -1, -1))
 
-
         # mix.shape = torch.Size([62, 52, 1])
         # check dmeensions
         if self.cfg.data.source != 'interps':
@@ -84,7 +83,10 @@ class LandmineDataset(torch.utils.data.Dataset):
                 raise ValueError(f'mix.shape[2] != 1, but {mix.shape[2]}')
         
         # reshape the mix to have channels first
-        mix = mix.permute(2, 0, 1)
+        if self.cfg.data.dataset == 'holograms':
+            mix = mix.permute(2, 0, 1)
+        else:
+            mix = mix.permute(3, 2, 0, 1)
 
         if self.transform:
             mix = self.transform(mix)

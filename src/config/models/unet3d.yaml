@@ -1,10 +1,10 @@
-_target_: src.models.nets.unet.UNet
+_target_: src.models.nets.unet3d.UNet3d
 
 params:
   num_layers: 5
   in_channels: 1
-  depth: 1
+  depth: 41
   embed_dim: 64
   image_size: 60
   hidden_dim: 100
-  bilinear: False
+  trilinear: True

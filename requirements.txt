@@ -1,3 +1,7 @@
+# install python and pip
+# https://www.python.org/downloads/
+# https://pip.pypa.io/en/stable/installing/
+
 # external requirements
 click
 Sphinx
@@ -7,14 +11,10 @@ python-dotenv>=0.5.1
 numpy
 pandas
 tqdm
-python-dotenv
 hydra-core
 
-# install from conda-forge
-conda-forge::awscli
-conda-forge:holopy
-conda-forge:pytorch-lightning
-
+# install holopy and pytorch-lightning from conda-forge
+# conda install -c conda-forge holopy pytorch-lightning
 
 # testing requirements
 pytest

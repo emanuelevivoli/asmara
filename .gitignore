@@ -115,3 +115,8 @@ shell/
 
 # compressed data files
 data.zip
+
+paper_images
+paper_images_supp
+
+new_processed

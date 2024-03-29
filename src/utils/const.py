@@ -1,12 +1,13 @@
 from pathlib import Path
 
-BASEPATH = Path('/Users/emanuelevivoli/Projects/asmara')
+BASEPATH = Path('/home/evivoli/projects/asmara')
 
 datapath = BASEPATH / Path('data')
 
 datarawpath = datapath / Path('raw')
 interimpath = datapath / Path('interim')
 processedpath = datapath / Path('processed')
+new_processedpath = datapath / Path('new_processed')
 
 # Path for interim data that has been transformed.
 metadatapath = datapath / Path('interim/meta')

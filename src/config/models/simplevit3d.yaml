@@ -1,4 +1,4 @@
-_target_: src.models.nets.simplevit.SimpleViT3d
+_target_: src.models.nets.simplevit3d.SimpleViT3d
 
 params:
   image_size: 60

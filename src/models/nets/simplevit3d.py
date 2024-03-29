@@ -28,11 +28,13 @@ class SimpleViT3d(pl.LightningModule):
         params = OmegaConf.create(params)
 
         self.opt = kwargs.get('opt', None)
-
+        
         self.model = sViT3d(
             num_classes = num_classes,
             image_size = params.image_size,
-            patch_size = params.patch_size,
+            image_patch_size = params.image_patch_size,
+            frames = params.frames,
+            frame_patch_size = params.frame_patch_size,
             channels = params.in_channels,
             dim = params.embed_dim,
             depth = params.num_layers,
@@ -58,6 +60,8 @@ class SimpleViT3d(pl.LightningModule):
 
 
     def forward(self, x):
+        #todo: remove the first channel fo images 
+        x = x[:, :, 1:, :, :]
         x = self.model(x)
         return x
     

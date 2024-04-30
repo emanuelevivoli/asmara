@@ -81,4 +81,4 @@ dependencies:
       - wandb==0.13.10
       - wheel==0.38.4
       - yarl==1.8.2
-prefix: /home/evivoli/miniconda3/envs/new-env
+prefix: /home/breakfastea/miniconda3/envs/new-env

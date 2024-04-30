@@ -21,24 +21,24 @@ from src.utils.const import BASEPATH
 from src.utils.data import check_task_classes
 from src.utils.model import instantiate_from_config
 
+
 import logging
 logger = logging.getLogger(__name__)
 
 wandb_logger = WandbLogger()
-
 @hydra.main(version_base=None, config_path=f'{BASEPATH}/src/config', config_name='default')
 def train(cfg: DictConfig):
     # The decorator is enough to let Hydra load the configuration file.
-    
     assert cfg.seed != None, "Please specify a seed. [0, 42, 100, 333]"
     assert cfg.data.dataset != None, "Please specify a dataset in the config file. [holograms, inversion]"
     assert cfg.data.task != None, "Please specify a task in the config file. [binary, trinary, multi]"
     assert cfg.model.name != None, "Please specify model name. [ResNet50, SimpleViT, UNet, SimpleViT3d]"
 
     if cfg.data.source == 'interps': logger.info("Using interpolated holograms [60x60]")
-
+    print("test")
     model_cfg = OmegaConf.load(f"{BASEPATH}/src/config/models/{cfg.model.name}.yaml")
     
+    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
     # logging.info(f"I dont care about patience {cfg.callback.patience}, it will be set to -> 10")
     # cfg.callback.patience = 10
     
@@ -56,9 +56,9 @@ def train(cfg: DictConfig):
     # We recover the original path of the dataset:
     datapath = Path(hydra.utils.get_original_cwd()) / Path(cfg.data.paths[f'{cfg.data.dataset}'])
     logging.info(f"Using {cfg.data.dataset} dataset from {datapath}")
-
-    metapath = Path(hydra.utils.get_original_cwd()) / Path(cfg.data.paths.splits) / Path(str(cfg.seed)) / Path(cfg.data.task)
-
+    print(datapath)
+    metapath = Path(hydra.utils.get_original_cwd()) / Path(cfg.data.paths.splits) #/ Path(str(cfg.seed)) / Path(cfg.data.task)
+    print(metapath)
     # Define the transformations to apply to the data
     if cfg.data.transforms == 'default':
         logging.info("Using transformations Normalize")
@@ -69,17 +69,20 @@ def train(cfg: DictConfig):
         logging.info("Using NO transformations")
         transform = None
 
+
     # create train, validation, and test datasets
     train_data = LandmineDataset( datapath, metapath, 'train', cfg, transform=transform)
     val_data = LandmineDataset( datapath, metapath, 'val', cfg, transform=transform )
     test_data = LandmineDataset( datapath, metapath, 'test', cfg, transform=transform )
     
-    
     # Wrap data with appropriate data loaders
+    print("TRAINING")
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=cfg.data.batch_size, shuffle=True, **cfg.dataset)
+    print("VALIDATION")
     val_loader = torch.utils.data.DataLoader(val_data, batch_size=cfg.data.batch_size, **cfg.dataset)
+    print("TESTING")
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=cfg.data.batch_size, **cfg.dataset)
-
+    
     # check if train_loader is empty and batch size is correct
     if len(train_loader) == 0: raise ValueError("Train loader is empty. Check the configuration file.")
     batch = next(iter(train_loader))
@@ -100,7 +103,7 @@ def train(cfg: DictConfig):
         else: devices = len(gpus.split(','))
     else:
         devices = None
-
+    print(f"{devices} PROVA PROVA PROVA PROVA PROVA PROVA")
     # set the strategy
     if cfg.custom_trainer.strategy == 'ddp' and \
         cfg.custom_trainer.find_unused_parameters == False:
@@ -152,3 +155,4 @@ def train(cfg: DictConfig):
 
 if __name__ == "__main__":
     train()
+

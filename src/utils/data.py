@@ -90,7 +90,7 @@ def check_task_classes(cfg):
     
     return None
 
-def objects_info(filename='indoor_objects.csv', key='id', columns=['name', 'classification']):
+def objects_info(filename='old.indoor_objects.csv', key='id', columns=['name', 'classification']):
     assert len(columns) >= 2
     df = pd.read_csv(Path(datarawpath) / Path(filename))
     df_dict = {k: (v1, v2) for k, (v1, v2) in zip(
@@ -102,23 +102,19 @@ def create_annotation(name, info, location, df_dict):
     indexes = info[location]['indexes']
     keys = info[location]['keys']
     prefix = info[location]['prefix']
-    
     name_list = name.split('_')
     
     obj = {}
     for c_index, c_key in zip(indexes, keys):
         obj[f'{prefix}_{c_key}'] = name_list[c_index]
-
-    if len(name_list) > len(indexes):
-        if location == 'indoor':
+        
+    if location == 'indoor':
+        if len(name_list) > len(indexes):
             inclination = 20
         else:
-            raise ValueError(f'Additional info not found for {name}')
-    else:
-        if location == 'indoor':
             inclination = 0
-        else:
-            additional = None
+    else:
+        additional = None
 
     obj[f'{prefix}_location'] = location        
     obj[f'{prefix}_file_name'] = name

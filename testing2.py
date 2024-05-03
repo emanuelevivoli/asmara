@@ -2,7 +2,7 @@ import torch
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 from scipy.interpolate import interp1d
 
@@ -87,31 +87,18 @@ def unifyLog(festo_file_path, pluto_file_path):
     py = np.array(P_Y[0])
 
     # Definizione della griglia regolare
-    xi = np.linspace(min(px), max(px), 62)
-    yi = np.linspace(max(py), min(py), 52)
+    xi = np.linspace(min(px), max(px), 67)
+    yi = np.linspace(max(py), min(py), 54)
 
     # Interpolazione dei dati sparsi sulla griglia regolare
     FFMOD = griddata((px, py), P_MOD.values, (xi[None, :], yi[:, None]), method = "linear")
     FFPHASE = griddata((px, py), P_PHASE.values, (xi[None, :], yi[:, None]), method = "linear")
-    print("test")
+
     # zi conterrà i valori interpolati sulla griglia regolare
     FFMOD[np.isnan(FFMOD)] = np.min(FFMOD)
     FFMOD[np.isnan(FFPHASE)] = np.min(FFPHASE)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
-    im1 = ax1.imshow(FFMOD,  origin='lower', cmap='hsv')
-    ax1.set_title('Amplitude [ADC levels]')
-    ax1.set_xlabel('X [mm]')
-    ax1.set_ylabel('Y [mm]')
-    plt.colorbar(im1, ax=ax1, shrink=0.45)
-    im2 = ax2.imshow(FFPHASE,  origin='lower', cmap='hsv')
-    ax2.set_title('Phase [rad]')
-    ax2.set_xlabel('X [mm]')
-    ax2.set_ylabel('Y [mm]')
-    plt.colorbar(im2, ax=ax2, shrink=0.45)
-    plt.tight_layout()
-    #plt.savefig('/Users/breakfastea/Documents/Asmara/images/image.png', dpi=400)
-    plt.show()
-    
+    FFMOD = FFMOD[1:-2,5:-1]  
+    FFPHASE = FFPHASE[1:-2,5:-1]
     fourier_transform = FFMOD * np.exp(1j * FFPHASE)
     
     return fourier_transform
@@ -153,7 +140,15 @@ class LandmineDataset_bis(torch.utils.data.Dataset):
                 outdoor = outdoor.squeeze(0).permute(1, 2, 0).contiguous() # [52, 62, 2]
                 outdoor = torch.view_as_complex(outdoor)
                 np.save(f"/home/lbisognin/ASMARA/data/machine_learning_bis/interps/outdoor/{outdoor_file.name}", outdoor)
-
+                
+    def __getimage__(self, idx):
+        row = self.csv.iloc[idx]
+        indoor = self.indoor_scans[f"{row['in_file_name']}_holo"]
+        plt.imshow(np.real(indoor), origin="lower", cmap="gray")
+        plt.margins(0)
+        plt.axis("off")
+        plt.savefig(f'/home/breakfastea/projects/asmara/data_bis/interim/standard/images/{row["mix_name"]}.png', bbox_inches='tight', pad_inches=0)
+        plt.show
     def __getitem__(self, idx):
         row = self.csv.iloc[idx]
         indoor = self.indoor_scans[f"{row['in_file_name']}_holo"]
@@ -169,75 +164,21 @@ class LandmineDataset_bis(torch.utils.data.Dataset):
         # else:
         #     plt.savefig(f'/home/lbisognin/ASMARA/data/machine_learning_bis/mineclassify_bis/train/other/{row["mix_name"]}.png', bbox_inches='tight', pad_inches=0)
         # plt.close()
-        
-    # def __getitem2__(self):
-    #     for indoor_name, data_indoor in tqdm(self.indoor_scans.items()):
-    #         for outdoor_name, data_outdoor in tqdm(self.outdoor_scans.items()):
-    #             fusion = 0.14 * data_indoor[1,:,:] + 0.86 * data_outdoor[1,:,:]
-    #             np.save(f'/home/lbisognin/ASMARA/data/DATASET/holograms3/{indoor_name}__{outdoor_name}.npy', fusion)
-    #             plt.imshow(np.real(fusion) ,origin="lower", cmap="gray")
-    #             plt.margins(0)
-    #             plt.axis("off")
-    #             plt.savefig(f'/home/lbisognin/ASMARA/data/DATASET/images3/{indoor_name}__{outdoor_name}.png', bbox_inches='tight', pad_inches=0)
-    #             plt.close()
+    
+hologram = unifyLog('data/tests/TraceData_0229_1_A.csv', 'data/tests/plutoScan_0229_1_A.log')
+plt.imshow(np.real(hologram), origin="lower", cmap="gray")
+plt.margins(0)
+plt.axis("off")
+plt.savefig(f'/home/breakfastea/projects/asmara/data_bis/interim/standard/images/test.png', bbox_inches='tight', pad_inches=0)
+plt.show
 
-dataset = LandmineDataset_bis(Path("/home/lbisognin/ASMARA/data/machine_learning_bis/interps/indoor"),
-                               Path("/home/lbisognin/ASMARA/data/machine_learning_bis/interps/outdoor"),
-                              Path("/home/lbisognin/ASMARA/data/old.processed/meta/mix.csv"))
+# dataset = LandmineDataset_bis(Path("/home/breakfastea/projects/asmara/data_bis/interim/standard/holograms/indoor"),
+#                                Path("/home/breakfastea/projects/asmara/data_bis/interim/standard/holograms/outdoor"),
+#                               Path("/home/breakfastea/projects/asmara/data/interim/meta/mix.csv"))
 
 # for i in tqdm(range(0, 47632)):
 #     dataset.__getitem__(i)
 # # # #      #355
 
 
-dataset.__getitem__(47631)
-
-
-# import shutil
-# import os
-
-# # Imposta la directory sorgente e la directory di destinazione
-# source_directory = '/home/lbisognin/ASMARA/data/machine_learning_bis/others_refused'
-# target_directory = '/home/lbisognin/asmara-main/data/processed/images'
-
-# # Crea la cartella di destinazione se non esiste
-# os.makedirs(target_directory, exist_ok=True)
-
-# # Itera attraverso i file nella directory sorgente
-# for filename in os.listdir(source_directory):
-#     # Estrae il terzo elemento dal nome del file come numero intero
-#     class_number = int(filename.split('_')[2])
-
-#     # Controlla se il numero della classe è nell'intervallo desiderato
-#         # Costruisce il percorso completo del file sorgente e di destinazione
-#     source_path = os.path.join(source_directory, filename)
-#     target_path = os.path.join(target_directory, filename)
-
-#     # Sposta il file dalla sorgente alla destinazione
-#     shutil.move(source_path, target_path)
-#     print(f"File {filename} spostato da {source_directory} a {target_directory}")
-
-
-# import os
-# import random
-# import shutil
-
-# def sposta_elementi_casuali(cartella_origine, cartella_destinazione, num_elementi):
-#     # Ottieni un elenco di tutti i file nella cartella di origine
-#     elenco_file = os.listdir(cartella_origine)
-    
-#     # Seleziona casualmente num_elementi dall'elenco dei file
-#     elementi_da_spostare = random.sample(elenco_file, num_elementi)
-    
-#     # Sposta i file selezionati nella cartella di destinazione
-#     for elemento in elementi_da_spostare:
-#         percorso_origine = os.path.join(cartella_origine, elemento)
-#         percorso_destinazione = os.path.join(cartella_destinazione, elemento)
-#         shutil.move(percorso_origine, percorso_destinazione)
-
-# # Esempio di utilizzo
-# cartella_origine = "/home/lbisognin/ASMARA/data/machine_learning_bis/mineclassify_bis/train/other"
-# cartella_destinazione = "/home/lbisognin/ASMARA/data/machine_learning_bis/others_refused"
-# num_elementi = 8113
-
-# sposta_elementi_casuali(cartella_origine, cartella_destinazione, num_elementi)
+# dataset.__getimage__(0)

@@ -18,7 +18,7 @@ from src.utils.const import *
 from src.utils.struct import Holo
 
 #! MAGIC NUMBER
-ALPHA = 0.128
+ALPHA = 0.1399
 
 # main get:
 # - format, a list of strings [if we want mixed hologram (npy), images (img), inversion (inv) and metadata (meta)]

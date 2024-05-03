@@ -1,10 +1,11 @@
 from pathlib import Path
 
-BASEPATH = Path('/home/evivoli/projects/asmara')
+BASEPATH = Path('/home/breakfastea/projects/asmara')
 
-datapath = BASEPATH / Path('data')
+datapath = BASEPATH / Path('data_bis') 
 
-datarawpath = datapath / Path('raw')
+#datarawpath = datapath / Path('raw')
+datarawpath = Path('/home/breakfastea/projects/asmara/data/raw')
 interimpath = datapath / Path('interim')
 processedpath = datapath / Path('processed')
 new_processedpath = datapath / Path('new_processed')

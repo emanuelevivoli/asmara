@@ -11,8 +11,6 @@ import os
 import numpy as np
 import pandas as pd
 
-
-
 # image processing
 from PIL import Image
 
@@ -24,15 +22,99 @@ from src.utils.holo import create_inversion
 from src.utils.spec import locations, info, params
 from src.utils.struct import Holo
 
-def matlab_settings():
-    # matlab imports
-    import matlab.engine
-    # create a global variable
-    global eng
-    eng = matlab.engine.start_matlab()
-    s = eng.genpath(os.path.join(BASEPATH,'matlab'))
-    eng.addpath(s, nargout=0)
+#get_numpy
+from scipy.interpolate import griddata
+from scipy.interpolate import interp1d
 
+def loadFestoLog(FFESTO):
+    opt = {
+        "delimiter" : ";",
+        "names" : ["DATE", "X", "Y", "Z"]
+    }
+    festoLog = pd.read_csv(FFESTO, **opt)
+    festoLog.DATE = pd.to_datetime(festoLog.DATE,  unit="ms")
+
+    festoLog.X = festoLog.X/1000
+    festoLog.Y = festoLog.Y/1000
+    festoLog.Z = festoLog.Z/1000
+    
+    DATE = festoLog
+    return DATE
+
+def loadPlutoLog(FPLUTO):
+    opt = {
+        "delimiter" : " ",
+        "names" : ["DATE", "FREQUENCY_TX", "FREQUENCY_RX", "MOD_I", "PHASE_I", "MOD_Q", "PHASE_Q", "MOD", "PHASE"],
+        "dtype" : {'FREQUENCY_TX': float, 'FREQUENCY_RX': float, 'MOD_I': float, 
+                   'PHASE_I': float, 'MOD_Q': float, 'PHASE_Q': float, 'MOD': float, 'PHASE': float},
+        "parse_dates": ["DATE"],
+        "date_parser": lambda x: pd.to_datetime(x, format="%Y/%m/%d-%H:%M:%S.%f"),
+        "skipinitialspace": True,
+        "skiprows": 1
+    }
+
+    plutoScan = pd.read_csv(FPLUTO, **opt)
+    DATE = plutoScan
+    return DATE
+
+def unifyLog(festo_file_path, pluto_file_path):
+
+    # definisco costanti
+    NEIG = "none"
+    INTM = "natural"
+    TOFF = 0
+    P1 = loadFestoLog(festo_file_path)
+    co, ce = np.histogram(P1.Z, 1000)
+    cx = np.argmax(co)
+    H = ce[cx]*1000
+    P2 = loadPlutoLog(pluto_file_path)
+    P2.DATE = P2.DATE + pd.to_timedelta(TOFF * 1e-3, unit='s') #TOFF inutile dato che mantiene valore 0 per tutto il programma
+    #verifico saturazione segnali
+    
+    # if any((abs(P2.MOD_I * np.sin(P2.PHASE_I)) >= 2**11-1) | (abs(P2.MOD_I * np.cos(P2.PHASE_I)) >= 2**11-1)): 
+    #     print('WARNING: signal I is saturated.')
+    # if any((abs(P2.MOD_Q * np.sin(P2.PHASE_Q)) >= 2**11-1)| (abs(P2.MOD_Q * np.cos(P2.PHASE_Q)) >= 2**11-1)):
+    #     print('WARNING: signal Q is saturated.')
+        #Index of PLUTO's data within FESTO's time window
+    P_ix = np.where((P2.DATE >= min(P1.DATE)) & (P2.DATE <= max(P1.DATE)))
+    P_F = P2.FREQUENCY_TX[P_ix[0]] #P_ix it's a list of arrays
+    P_F_UNIQUE = np.unique(P_F)
+    P_F_UNIQUE = np.sort(P_F_UNIQUE)
+    #P_DATE = np.empty(len(P_ix[0]), dtype="datetime64[ns]")
+    P_DATE = P2.DATE[P_ix[0]]
+    P_MOD = P2.MOD[P_ix[0]]
+    P_PHASE = P2.PHASE[P_ix[0]]
+    
+    #festo data
+    F_X = P1.X
+    F_Y = P1.Y
+    F_DATE = P1.DATE
+
+    FFMOD = []
+    FFPHASE = []
+    P_X = []
+    P_Y = []
+    for n in range(0, len(P_F_UNIQUE)):
+        spline_interp_x = interp1d(F_DATE, F_X, kind='cubic', bounds_error=False, fill_value="extrapolate")
+        spline_interp_y = interp1d(F_DATE, F_Y, kind='cubic', bounds_error=False, fill_value="extrapolate")
+        P_X.append(spline_interp_x(P_DATE))
+        P_Y.append(spline_interp_y(P_DATE))
+    px = np.array(P_X[0]) #list index out of range per alcune scansioni qui
+    py = np.array(P_Y[0])
+
+    # Definizione della griglia regolare
+    xi = np.linspace(min(px), max(px), 62)
+    yi = np.linspace(max(py), min(py), 52)
+
+    # Interpolazione dei dati sparsi sulla griglia regolare
+    FFMOD = griddata((px, py), P_MOD.values, (xi[None, :], yi[:, None]), method = "linear")
+    FFPHASE = griddata((px, py), P_PHASE.values, (xi[None, :], yi[:, None]), method = "linear")
+    # zi conterrà i valori interpolati sulla griglia regolare
+    FFMOD[np.isnan(FFMOD)] = np.min(FFMOD)
+    FFPHASE[np.isnan(FFPHASE)] = np.min(FFPHASE)
+    fourier_transform = FFMOD * np.exp(1j * FFPHASE)
+        
+    return fourier_transform
 
 def create_folder(path, location=None):
     if not os.path.exists(path):
@@ -70,10 +152,6 @@ def main(interpolate, precompute, format, location, test):
         holograms_path = hologramspath
         images_path = imagespath
         inversions_path = inversionspath
-
-    # if precompute is True, matlab is not needed
-    if not precompute:
-        matlab_settings()
 
     df, df_dict = objects_info()
 
@@ -121,37 +199,26 @@ def main(interpolate, precompute, format, location, test):
 
         columns = info[location]['columns']
         loc_prefix = info[location]['prefix']
-
         if test:
             intersection = list(intersection)[:10]
 
         for name in tqdm(intersection):
 
-            pluto = f'{name}.log'
-            samba = f'{name}.csv'
+            pluto = datarawpath / location / f'{name}.log'
+            samba = datarawpath / location / f'{name}.csv'
 
             ######################
             #! CREATE ANNOTATION
             ######################
-
+            
             annotation_obj = create_annotation(name, info, location, df_dict)
-
             try:
                 # if precompute is True, matlab is not needed
                 if not precompute:
-                    eng.workspace['pluto']= os.path.join(datarawpath, location, pluto)
-                    eng.workspace['trace']= os.path.join(datarawpath, location, samba)
-
-                    eng.eval(f"[F,FI,FQ,P_X,P_Y,P_MOD,P_PHASE] = merge_acquisition(trace, pluto);",nargout=0)
-                    eng.eval(f"[MO, PH, H, Hfill] = fast_generate_hologram(F, FI, FQ, 5, P_X, P_Y, P_MOD, P_PHASE, 2, 3);",nargout=0)
-
-                    # get metlab matrixes as numpy arrays
-                    Hfill = eng.workspace['Hfill']
-                    np_Hfill = np.asarray(Hfill, dtype = 'complex_')
-
+                    hologram = unifyLog(samba, pluto) #modified
                     if save_npy:
                         # save numpy arrays to file
-                        np.save(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'), arr=np_Hfill)
+                        np.save(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'), arr=hologram)
                 else:
 
                     if interpolate:
@@ -166,13 +233,14 @@ def main(interpolate, precompute, format, location, test):
                         
 
                 # convert numpy arrays to image
-                np_Hfill = np.abs(np_Hfill)
-                I8 = (((np_Hfill - np_Hfill.min()) / (np_Hfill.max() - np_Hfill.min())) * 255).astype(np.uint8)
-                img = Image.fromarray(I8)
+                
+                # np_Hfill = np.abs(np_Hfill)
+                # I8 = (((np_Hfill - np_Hfill.min()) / (np_Hfill.max() - np_Hfill.min())) * 255).astype(np.uint8)
+                # img = Image.fromarray(I8)
 
-                if save_img:
-                    # save image to file
-                    img.save(os.path.join(images_path, location, f'{name}.png'))
+                # if save_img:
+                #     # save image to file
+                #     img.save(os.path.join(images_path, location, f'{name}.png'))
                 
                 if save_inv:
                     inversion = create_inversion(os.path.join(images_path, location, f'{name}.png'), MEDIUM_INDEX = params[location]['MEDIUM_INDEX'], WAVELENGTH = 15, SPACING = 0.5 )

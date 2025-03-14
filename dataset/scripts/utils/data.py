@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from src.utils.const import *
+from ..utils.const import *
 
 def twoclass(label:str)->int:
     # 1 -> mine
@@ -69,6 +69,7 @@ def read_scans(indoor_dir, outdoor_dir):
     
     return indoor_scans, outdoor_scans
 
+#TODO: check if this method is used elsewhere or move it inside make dataset
 def if_null_create(output_path):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
@@ -90,12 +91,6 @@ def check_task_classes(cfg):
     
     return None
 
-def objects_info(filename='indoor_objects.csv', key='id', columns=['name', 'classification']):
-    assert len(columns) >= 2
-    df = pd.read_csv(Path(datarawpath) / Path(filename))
-    df_dict = {k: (v1, v2) for k, (v1, v2) in zip(
-        df[key], zip(df[columns[0]], df[columns[1]]))}
-    return df, df_dict
 
 def create_annotation(name, info, location, df_dict):
     

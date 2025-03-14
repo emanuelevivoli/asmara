@@ -1,208 +1,126 @@
-# -*- coding: utf-8 -*-
 import click
 import logging
 from pathlib import Path
-from dotenv import find_dotenv, load_dotenv
-
-# input/output
-import os
-
-# data analysis import
 import numpy as np
 import pandas as pd
-
-
-
-# image processing
 from PIL import Image
-
-# utils
 from tqdm.auto import tqdm
-from src.utils.const import *
-from src.utils.data import create_annotation, objects_info
-from src.utils.holo import create_inversion
-from src.utils.spec import locations, info, params
-from src.utils.struct import Holo
 
-def matlab_settings():
-    # matlab imports
-    import matlab.engine
-    # create a global variable
-    global eng
-    eng = matlab.engine.start_matlab()
-    s = eng.genpath(os.path.join(BASEPATH,'matlab'))
-    eng.addpath(s, nargout=0)
+from ..utils.const import *
+from ..utils.data import create_annotation
+from ..utils.holo import create_inversion
+from ..utils.spec import locations, info, params
+from ..utils.struct import Holo
 
+logger = logging.getLogger(__name__)
 
-def create_folder(path, location=None):
-    if not os.path.exists(path):
-        os.makedirs(path)  
+def create_folders(*paths):
+    """Creates directories if they don't exist."""
+    for path in paths:
+        path.mkdir(parents=True, exist_ok=True)
 
-    if location is not None and not os.path.exists(os.path.join(path, location)):
-        os.makedirs(os.path.join(path, location))
-
-
-# main get:
-# - precompute, a boolean
-# - format, a list of strings
-# - location, a string
 @click.command()
-@click.option('--interpolate', '-i', is_flag=True, help='If True, we interpolate images and obtain sqared 60x60 images')
-@click.option('--precompute', '-p', is_flag=True, help='If True, matlab is not needed')
-@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Format of the output files')
-@click.option('--location', '-l', type=click.Choice(locations), help='Location of the scans')
-@click.option('--test', '-t', is_flag=True, help='Only test 10 elements')
-def main(interpolate, precompute, format, location, test):
-    """ Runs data processing scripts to turn raw data from (../raw) into
-        cleaned data ready to be analyzed (saved in ../processed).
-    """
+@click.option('--interpolate', '-i', is_flag=True, help='Interpolate images to 60x60.')
+@click.option('--precompute', '-p', is_flag=True, help='Disable MATLAB dependency.')
+@click.option('--format', '-f', multiple=False, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Output formats.')
+@click.option('--location', '-l', type=click.Choice(locations), help='Scan location.')
+@click.option('--test', '-t', is_flag=True, help='Process only 10 elements.')
+def main(interpolate:bool, precompute:bool, format, location, test:bool):
+    """Processes raw holographic data and saves results in various formats."""
 
-    logger = logging.getLogger(__name__)
-    logger.info('making final data set from raw data')
+    logger.info('Starting data processing...')
+    
+    raw_data_path = Path("../../data/raw_data")
+    data_subfolder = "interpolated" if interpolate else "standard"
+    base_path = Path(f"../../data/interm_data/{data_subfolder}")
 
-    if interpolate:
-        holograms_path = inter_hologramspath
-        images_path = inter_imagespath
-        inversions_path = inter_inversionspath
-        # additionally, if interpolate, it is also precompute
-        precompute = True
-    else:
-        holograms_path = hologramspath
-        images_path = imagespath
-        inversions_path = inversionspath
+    holograms_path = base_path / "holograms"
+    images_path = base_path / "images"
+    inversions_path = base_path / "inversions"
+    metadata_path = Path("../../data/interm_data/meta")
 
-    # if precompute is True, matlab is not needed
+    precompute = True if interpolate else precompute
+
+    # Initializes MATLAB engine if needed
     if not precompute:
-        matlab_settings()
+        import matlab.engine
+        eng = matlab.engine.start_matlab()
+        eng.addpath(eng.genpath(os.path.join(BASEPATH, 'matlab')), nargout=0)
 
-    df, df_dict = objects_info()
+    df = pd.read_csv(raw_data_path / "indoor_objects.csv")
+    object_info = {row.id: (row.name, row.classification) for _, row in df.iterrows()}
 
-    # if format is empty, all are set to True
-    if len(format) == 0:
-        save_npy = True
-        save_img = True
-        save_inv = True
-        save_meta = True
+    save_npy, save_img, save_inv, save_meta = (key in format for key in ('npy', 'img', 'inv', 'meta'))
+    if not format:
+        save_npy = save_img = save_inv = save_meta = True
 
-    else:
-        # get save_npy, save_img, save_inv, save_meta from format
-        save_npy = 'npy' in format
-        save_img = 'img' in format
-        save_inv = 'inv' in format
-        save_meta = 'meta' in format
+    locations_to_process = [location] if location else locations
 
-    # if location is not specified, process all locations otherwise process only the specified location
-    if location is None: locs = locations
-    else: locs = [location]
-
-    for location in tqdm(locs):
-        
-        # -> create HOLOGRAMS
+    for loc in tqdm(locations_to_process, desc="Processing locations"):
         metadata = []
-        
-        names = os.listdir( os.path.join(datarawpath, location) )
+        loc_path = raw_data_path / loc
 
-        # create folder if not exists
-        if save_npy: create_folder(holograms_path, location)
-        if save_img: create_folder(images_path, location)
-        if save_inv: create_folder(inversions_path, location)
+        if not loc_path.exists():
+            logger.warning(f"Location {loc} does not exist. Skipping.")
+            continue
 
-        if save_meta: create_folder(metadatapath)
-
-        # instead of doing this:
-        #   plutos = [name for name in names if name.endswith('.log')]
-        #   sambas = [name for name in names if name.endswith('.csv')]
-        # we just take the names without extention:
-        names_list = [name.split('.')[0] for name in names]
-        union = set(names_list)
-        intersection = set([ el for el in union if names_list.count(el) > 1])
-
-        # diff = union - intersection
-
-        columns = info[location]['columns']
-        loc_prefix = info[location]['prefix']
-
+        names = {f.stem for f in loc_path.iterdir() if f.suffix in {'.log', '.csv'}}
         if test:
-            intersection = list(intersection)[:10]
+            names = list(names)[:10]
 
-        for name in tqdm(intersection):
+        create_folders(holograms_path / loc, images_path / loc, inversions_path / loc, metadata_path)
 
-            pluto = f'{name}.log'
-            samba = f'{name}.csv'
-
-            ######################
-            #! CREATE ANNOTATION
-            ######################
-
-            annotation_obj = create_annotation(name, info, location, df_dict)
-
+        for name in tqdm(names, desc=f"Processing {loc} scans"):
             try:
-                # if precompute is True, matlab is not needed
+                annotation = create_annotation(name, info, loc, object_info)
+
+                holo_file = holograms_path / loc / f"{name}_holo.npy"
+
                 if not precompute:
-                    eng.workspace['pluto']= os.path.join(datarawpath, location, pluto)
-                    eng.workspace['trace']= os.path.join(datarawpath, location, samba)
+                    trace_path = loc_path / f"{name}.csv"
+                    log_path = loc_path / f"{name}.log"
 
-                    eng.eval(f"[F,FI,FQ,P_X,P_Y,P_MOD,P_PHASE] = merge_acquisition(trace, pluto);",nargout=0)
-                    eng.eval(f"[MO, PH, H, Hfill] = fast_generate_hologram(F, FI, FQ, 5, P_X, P_Y, P_MOD, P_PHASE, 2, 3);",nargout=0)
+                    eng.workspace['trace'] = str(trace_path)
+                    eng.workspace['pluto'] = str(log_path)
+                    eng.eval("[F, FI, FQ, P_X, P_Y, P_MOD, P_PHASE] = merge_acquisition(trace, pluto);", nargout=0)
+                    eng.eval("[MO, PH, H, Hfill] = fast_generate_hologram(F, FI, FQ, 5, P_X, P_Y, P_MOD, P_PHASE, 2, 3);", nargout=0)
 
-                    # get metlab matrixes as numpy arrays
-                    Hfill = eng.workspace['Hfill']
-                    np_Hfill = np.asarray(Hfill, dtype = 'complex_')
-
+                    np_Hfill = np.asarray(eng.workspace['Hfill'], dtype='complex_')
                     if save_npy:
-                        # save numpy arrays to file
-                        np.save(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'), arr=np_Hfill)
+                        np.save(holo_file, np_Hfill)
                 else:
+                    np_Hfill = np.load(holo_file)
 
                     if interpolate:
-                        standard_holograms_path = hologramspath
-                        np_Hfill = np.load(file=Path(standard_holograms_path) / Path(location) / Path(f'{name}_holo.npy'))
                         np_Hfill = Holo(np_Hfill).interpolate().hologram
                         if save_npy:
-                            np.save(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'), arr=np_Hfill)
-                    else:
-                        # load numpy arrays from file
-                        np_Hfill = np.load(file=Path(holograms_path) / Path(location) / Path(f'{name}_holo.npy'))
-                        
+                            np.save(holo_file, np_Hfill)
 
-                # convert numpy arrays to image
+                # Convert hologram to image
                 np_Hfill = np.abs(np_Hfill)
-                I8 = (((np_Hfill - np_Hfill.min()) / (np_Hfill.max() - np_Hfill.min())) * 255).astype(np.uint8)
-                img = Image.fromarray(I8)
+                img = Image.fromarray(((np_Hfill - np_Hfill.min()) / (np_Hfill.max() - np_Hfill.min()) * 255).astype(np.uint8))
 
                 if save_img:
-                    # save image to file
-                    img.save(os.path.join(images_path, location, f'{name}.png'))
-                
-                if save_inv:
-                    inversion = create_inversion(os.path.join(images_path, location, f'{name}.png'), MEDIUM_INDEX = params[location]['MEDIUM_INDEX'], WAVELENGTH = 15, SPACING = 0.5 )
-                    np.save(file= Path(inversions_path) / Path(location) / Path(f'{name}_inv.npy'), arr=inversion)
+                    img.save(images_path / loc / f"{name}.png")
 
-                # add info to metadata
-                metadata.append(annotation_obj)
+                if save_inv:
+                    inversion = create_inversion(
+                        images_path / loc / f"{name}.png",
+                        MEDIUM_INDEX=params[loc]['MEDIUM_INDEX'],
+                        WAVELENGTH=15,
+                        SPACING=0.5
+                    )
+                    np.save(inversions_path / loc / f"{name}_inv.npy", inversion)
+
+                metadata.append(annotation)
 
             except Exception as e:
-                print(e)
+                logger.error(f"Error processing {name}: {e}")
 
-        # save metadata
         if save_meta:
-            # create pandas dataframe from dicts of lists
-            df = pd.DataFrame.from_dict(metadata)
-            
-            # save pandas to csv
-            columns = [f'{loc_prefix}_{column}' for column in columns]
-            df.to_csv(Path(metadatapath) / Path(f'{location}.csv'), index=False, header=True, columns=columns)
+            df = pd.DataFrame(metadata)
+            df.to_csv(metadata_path / f"{loc}.csv", index=False, header=True)
 
-
-if __name__ == '__main__':
-    log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    logging.basicConfig(level=logging.INFO, format=log_fmt)
-
-    # not used in this stub but often useful for finding various files
-    project_dir = Path(__file__).resolve().parents[2]
-
-    # find .env automagically by walking up directories until it's found, then
-    # load up the .env entries as environment variables
-    load_dotenv(find_dotenv())
-
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     main()

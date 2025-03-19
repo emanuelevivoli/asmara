@@ -20,13 +20,15 @@ ALPHA = 0.143
 
 logger = logging.getLogger(__name__)
 
-# main get:
-# - format, a list of strings [if we want mixed hologram (npy), images (img), inversion (inv) and metadata (meta)]
-#TODO: check how multiple choices in format and location could be handled safely
 @click.command()
-@click.option('--interpolate', '-i', is_flag=True, help='If True, we interpolate images and obtain sqared 60x60 images')
-@click.option('output_path', '-o', type=click.Path())
-@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Format of the output files')
+@click.option('--interpolate', '-i', is_flag=True, default=False, 
+              help="Resize images to 60x60 resolution. This automatically enables '--precompute'. Run this command once without interpolation first to generate the required base files.")
+@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), 
+              default=('npy', 'img', 'inv', 'meta'), 
+              help="Choose output formats: 'npy' (NumPy arrays), 'img' (images), 'inv' (inverse data), 'meta' (metadata). Defaults to all formats. Repeat the flag for multiple choices.")
+@click.option('--output_path', '-o', type=click.Path(), default='', 
+              help="Set the base output directory. The folder structure created will match the default one")
+
 def main(interpolate, output_path, format):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
@@ -37,7 +39,7 @@ def main(interpolate, output_path, format):
     data_path = Path(__file__).parent.parent.resolve() / "data"
     interm_data_path = data_path/ "interm_data"
     processed_data_path = data_path / "processed_data"
-    if output_path == None:
+    if not output_path:
         output_path = processed_data_path / ("interpolated" if interpolate else "standard")
 
     processed_holograms_path = output_path / "holograms"

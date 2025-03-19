@@ -1,16 +1,8 @@
-function [MO, PH, H, Hfill] = fast_generate_hologram(F, FI, FQ, STEP, P_X, P_Y, P_I, P_Q, DOTSIZE, APERTURA)
+function [MO, PH, H, Hfill] = fast_generate_hologram(F, FI, FQ, STEP)
 
 % Set default values
 if ~exist('STEP','var') || isempty(STEP)
     STEP = 5;
-end
-
-if ~exist('DOTSIZE','var') || isempty(DOTSIZE)
-    DOTSIZE = 10;
-end
-
-if ~exist('APERTURA','var') || isempty(APERTURA)
-    APERTURA = 6;
 end
 
 for n=1:length(F)

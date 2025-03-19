@@ -2,7 +2,7 @@ import sys
 import os
 import click
 import logging
-from pathlib import Path
+from pathlib import Path, PosixPath
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -14,23 +14,30 @@ from utils import data, holo, spec, struct
 
 logger = logging.getLogger(__name__)
 
-#TODO: check how multiple choices in format and location could be handled safely
 @click.command()
-@click.option('--interpolate', '-i', is_flag=True, help='Interpolate images to 60x60.')
-@click.option('--precompute', '-p', is_flag=True, help='Disable MATLAB dependency.')
-@click.option('--format', '-f', multiple=False, type=click.Choice(['npy', 'img', 'inv', 'meta']), help='Output formats.')
-@click.option('--location', '-l', type=click.Choice(spec.locations), help='Scan location.')
-@click.option('--test', '-t', is_flag=True, help='Process only 10 elements.')
-@click.option('output_path', '-o', type=click.Path())
-def main(interpolate:bool, precompute:bool, format:str, location, test:bool, output_path):
-    """Processes raw holographic data and saves results in various formats."""
+@click.option('--interpolate', '-i', is_flag=True, default=False, 
+              help="Resize images to 60x60 resolution. This automatically enables '--precompute'. Run this command once without interpolation first to generate the required base files.")
+@click.option('--precompute', '-p', is_flag=True, default=False, 
+              help="Bypass MATLAB dependency by using precomputed files. Ensure you have previously run the function at least once to generate non-interpolated '.npy' files.")
+@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), 
+              default=('npy', 'img', 'inv', 'meta'), 
+              help="Choose output formats: 'npy' (NumPy arrays), 'img' (images), 'inv' (inverse data), 'meta' (metadata). Defaults to all formats. Repeat the flag for multiple choices.")
+@click.option('--locations', '-l', multiple=True, type=click.Choice(['outdoor', 'indoor']), 
+              default=('outdoor', 'indoor'), 
+              help="Specify scan locations: 'outdoor' or 'indoor'. Defaults to both. Repeat the flag for multiple choices.")
+@click.option('--test', '-t', is_flag=True, default=False, 
+              help="Enable test mode to process only 10 elements for quick validation.")
+@click.option('--output_path', '-o', type=click.Path(), default='', 
+              help="Set the base output directory. The folder structure created will match the default one")
+def main(interpolate:bool = False, precompute:bool = False, format:list[str] = ['npy', 'img', 'inv', 'meta'], locations:list[str] = ['outdoor', 'indoor'], test:bool = False, output_path:PosixPath = ''):
+    """Processes raw holographic data into their interm version"""
 
     logger.info('Starting interm data process ...')
 
     data_path = Path(__file__).parent.parent.resolve() / "data"
     raw_data_path = data_path / "raw_data"
     interm_data_path = data_path / "interm_data"
-    if output_path == None:
+    if not output_path:
         output_path = interm_data_path / ("interpolated" if interpolate else "standard")
 
 
@@ -50,14 +57,10 @@ def main(interpolate:bool, precompute:bool, format:str, location, test:bool, out
     df = pd.read_csv(raw_data_path / 'indoor_objects.csv')
     object_info = {row.id: (row.name, row.classification) for _, row in df.iterrows()}
 
-    if not format:
-        save_npy = save_img = save_inv = save_meta = True
-    else:
-        save_npy, save_img, save_inv, save_meta = (key in format for key in ('npy', 'img', 'inv', 'meta'))
+    save_npy, save_img, save_inv, save_meta = (key in format for key in ('npy', 'img', 'inv', 'meta'))
 
-    locations_to_process = [location] if location else spec.locations
+    for loc in tqdm(locations, desc="Processing locations"):
 
-    for loc in tqdm(locations_to_process, desc="Processing locations"):
         metadata = []
         loc_path = raw_data_path / loc
 

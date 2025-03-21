@@ -14,7 +14,8 @@ from PIL import Image
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils import data, spec, struct
+from utils import data, struct
+from utils.info import info
 
 #! MAGIC NUMBER FROM HOLOMINE PAPER
 ALPHA = 0.143
@@ -115,7 +116,7 @@ def make_processed(interpolate:bool = False, output_path:Optional[Path] = None, 
     if save_meta:
         data.if_null_create(processed_metadata_path)
         mix_df = pd.DataFrame.from_dict(mixed_meta)
-        mix_columns=['mix_name'] + ['in_'+column for column in spec.info['indoor']['columns']] + ['out_'+column for column in spec.info['outdoor']['columns']]
+        mix_columns=['mix_name'] + ['in_'+column for column in info['indoor']['columns']] + ['out_'+column for column in info['outdoor']['columns']]
         mix_df.to_csv(processed_metadata_path / 'mix.csv', index=False, header=True, columns=mix_columns)
 
 @click.command()

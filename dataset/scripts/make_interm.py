@@ -11,7 +11,8 @@ from tqdm.auto import tqdm
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils import holo, struct
+from utils import holo, struct, data
+from utils.info import info
 
 params = {
     'indoor':{
@@ -24,14 +25,15 @@ params = {
 
 logger = logging.getLogger(__name__)
 
+#FIX: inclination and additional are possibly unbound
 def create_annotation(name, info, location, df_dict):
-    
+
     indexes = info[location]['indexes']
     keys = info[location]['keys']
     prefix = info[location]['prefix']
-    
+
     name_list = name.split('_')
-    
+
     obj = {}
     for c_index, c_key in zip(indexes, keys):
         obj[f'{prefix}_{c_key}'] = name_list[c_index]
@@ -54,13 +56,13 @@ def create_annotation(name, info, location, df_dict):
         obj[f'{prefix}_distance_from_source'] = 8 if obj[f'{prefix}_distance_from_source'] == 'low' else 4 if obj[f'{prefix}_distance_from_source'] == 'bas' else None
         obj[f'{prefix}_inclination'] = inclination
         category_, name_ = df_dict.get(int(obj[f'{prefix}_id']), (None, None))
-        
+
         # name = "pmn-4"
         obj[f'{prefix}_name'] = name_
     else:
         category_ = 'ground-smarta'
         obj[f'{prefix}_additional'] = additional
-    
+
     # category = "mine"
     obj[f'{prefix}_category'] = category_
 
@@ -139,7 +141,7 @@ def make_interm(interpolate:bool = False, precompute:bool = False, format:tuple[
                             data.if_null_create(interm_holograms_path / loc)
                             np.save(interm_holograms_path / loc / f"{name}_holo.npy", np_Hfill)
 
-                metadata.append(data.create_annotation(name, spec.info, loc, object_info))
+                metadata.append(create_annotation(name, info, loc, object_info))
 
                 if save_img:
                     # Convert hologram to image

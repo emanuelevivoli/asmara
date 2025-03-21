@@ -38,7 +38,7 @@ class Holo:
     # define the save operation for a generic Hologram, given a path
     def save(self, path):
         np.save(path, self.hologram)
-        return self
+        # return self
     
     # define the reshape operation for a generic Hologram, given a shape
     def reshape(self, hologram, shape):
@@ -61,9 +61,7 @@ class Holo:
         self.hologram = torch_holo.numpy()
         return self
 
-# there is no need to define a class for images
-
-# define a class for holograms Inversions
+#WARNING: unused code
 class HoloInv:
     """Class for holograms Inversions.
     

@@ -8,9 +8,13 @@ import pandas as pd
 
 from pathlib import Path
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from scripts.utils.data import task_manager
+def task_manager(classes: int, row) -> torch.Tensor:
+    if classes == 1:
+        return torch.tensor([1 if row['in_name'] == 'mine' else 0], dtype=torch.float32)
+    elif classes == 3:
+        return torch.tensor([1 if row['in_name'] == 'mine' else 0 if row['in_name'] == 'archeology' else 2], dtype=torch.float32)
+    else:
+        return torch.tensor([int(row['in_id']) - 1], dtype=torch.float32)
 
 class HoloMineDataset(torch.utils.data.Dataset):
 

@@ -11,7 +11,16 @@ from tqdm.auto import tqdm
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils import data, holo, spec, struct
+from utils import data, holo, struct
+
+params = {
+    'indoor':{
+        'MEDIUM_INDEX': 1,
+    },
+    'outdoor':{
+        'MEDIUM_INDEX': 4,
+    }
+}
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +109,7 @@ def make_interm(interpolate:bool = False, precompute:bool = False, format:tuple[
                 if save_inv:
                     inversion = holo.create_inversion(
                         interm_images_path / loc / f"{name}.png",
-                        MEDIUM_INDEX=spec.params[loc]['MEDIUM_INDEX'],
+                        MEDIUM_INDEX=params[loc]['MEDIUM_INDEX'],
                         WAVELENGTH=15,
                         SPACING=0.5
                     )

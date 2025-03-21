@@ -5,3 +5,6 @@ dataset/data/interm_data/
 dataset/data/processed_data/
 
 .DS_Store
+
+outputs/
+logs/*

@@ -1,8 +1,9 @@
 import sys
 import os
+from typing import Optional
 import click
 import logging
-from pathlib import Path, PosixPath
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -14,22 +15,7 @@ from utils import data, holo, spec, struct
 
 logger = logging.getLogger(__name__)
 
-@click.command()
-@click.option('--interpolate', '-i', is_flag=True, default=False, 
-              help="Resize images to 60x60 resolution. This automatically enables '--precompute'. Run this command once without interpolation first to generate the required base files.")
-@click.option('--precompute', '-p', is_flag=True, default=False, 
-              help="Bypass MATLAB dependency by using precomputed files. Ensure you have previously run the function at least once to generate non-interpolated '.npy' files.")
-@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), 
-              default=('npy', 'img', 'inv', 'meta'), 
-              help="Choose output formats: 'npy' (NumPy arrays), 'img' (images), 'inv' (inverse data), 'meta' (metadata). Defaults to all formats. Repeat the flag for multiple choices.")
-@click.option('--locations', '-l', multiple=True, type=click.Choice(['outdoor', 'indoor']), 
-              default=('outdoor', 'indoor'), 
-              help="Specify scan locations: 'outdoor' or 'indoor'. Defaults to both. Repeat the flag for multiple choices.")
-@click.option('--test', '-t', is_flag=True, default=False, 
-              help="Enable test mode to process only 10 elements for quick validation.")
-@click.option('--output_path', '-o', type=click.Path(), default='', 
-              help="Set the base output directory. The folder structure created will match the default one")
-def main(interpolate:bool = False, precompute:bool = False, format:list[str] = ['npy', 'img', 'inv', 'meta'], locations:list[str] = ['outdoor', 'indoor'], test:bool = False, output_path:PosixPath = ''):
+def make_interm(interpolate:bool = False, precompute:bool = False, format:tuple[str, ...] = ('npy', 'img', 'inv', 'meta'), locations:tuple[str, ...] = ('outdoor', 'indoor'), test:bool = False, output_path:Optional[Path] = None):
     """Processes raw holographic data into their interm version"""
 
     logger.info('Starting interm data process ...')
@@ -39,12 +25,14 @@ def main(interpolate:bool = False, precompute:bool = False, format:list[str] = [
     interm_data_path = data_path / "interm_data"
     if not output_path:
         output_path = interm_data_path / ("interpolated" if interpolate else "standard")
+        interm_metadata_path = output_path.parent / "meta"
+    else:
+        interm_data_path = output_path / "meta"
 
-
+    output_path = Path(output_path)
     interm_holograms_path = output_path / "holograms"
     interm_images_path = output_path / "images"
     interm_inversions_path = output_path / "inversions"
-    interm_metadata_path = interm_data_path / "meta"
 
     precompute = True if interpolate else precompute
 
@@ -123,11 +111,29 @@ def main(interpolate:bool = False, precompute:bool = False, format:list[str] = [
                 logger.error(f"Error processing {name}: {e}")
 
         if save_meta:
-            print('DHN')
             df = pd.DataFrame(metadata)
             data.if_null_create(interm_metadata_path)
             df.to_csv(interm_metadata_path / f"{loc}.csv", index=False, header=True)
 
+@click.command()
+@click.option('--interpolate', '-i', is_flag=True, default=False, 
+              help="Resize images to 60x60 resolution. This automatically enables '--precompute'. Run this command once without interpolation first to generate the required base files.")
+@click.option('--precompute', '-p', is_flag=True, default=False, 
+              help="Bypass MATLAB dependency by using precomputed files. Ensure you have previously run the function at least once to generate non-interpolated '.npy' files.")
+@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), 
+              default=('npy', 'img', 'inv', 'meta'), 
+              help="Choose output formats: 'npy' (NumPy arrays), 'img' (images), 'inv' (inverse data), 'meta' (metadata). Defaults to all formats. Repeat the flag for multiple choices.")
+@click.option('--locations', '-l', multiple=True, type=click.Choice(['outdoor', 'indoor']), 
+              default=('outdoor', 'indoor'), 
+              help="Specify scan locations: 'outdoor' or 'indoor'. Defaults to both. Repeat the flag for multiple choices.")
+@click.option('--test', '-t', is_flag=True, default=False, 
+              help="Enable test mode to process only 10 elements for quick validation.")
+@click.option('--output_path', '-o', type=click.Path(resolve_path=True), default=None,
+              help="Set the base output directory. The folder structure created will match the default one")
+
+def cli_make_interm(interpolate:bool = False, precompute:bool = False, format:tuple[str, ...] = ('npy', 'img', 'inv', 'meta'), locations:tuple[str, ...] = ('outdoor', 'indoor'), test:bool = False, output_path:Optional[Path] = None):
+    make_interm(interpolate, precompute, format, locations, test, output_path)
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-    main()
+    cli_make_interm()

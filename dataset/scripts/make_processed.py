@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+from typing import Optional
 import click
 import logging
 from tqdm import tqdm
@@ -15,24 +16,14 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from utils import data, spec, struct
 
-#! MAGIC NUMBER
+#! MAGIC NUMBER FROM HOLOMINE PAPER
 ALPHA = 0.143
 
 logger = logging.getLogger(__name__)
 
-@click.command()
-@click.option('--interpolate', '-i', is_flag=True, default=False, 
-              help="Resize images to 60x60 resolution. This automatically enables '--precompute'. Run this command once without interpolation first to generate the required base files.")
-@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), 
-              default=('npy', 'img', 'inv', 'meta'), 
-              help="Choose output formats: 'npy' (NumPy arrays), 'img' (images), 'inv' (inverse data), 'meta' (metadata). Defaults to all formats. Repeat the flag for multiple choices.")
-@click.option('--output_path', '-o', type=click.Path(), default='', 
-              help="Set the base output directory. The folder structure created will match the default one")
+def make_processed(interpolate:bool = False, output_path:Optional[Path] = None, format:tuple[str, ...] = ('npy', 'img', 'inv', 'meta')):
+    """Processes interm holographic data into their processed version"""
 
-def main(interpolate, output_path, format):
-    """ Runs data processing scripts to turn raw data from (../raw) into
-        cleaned data ready to be analyzed (saved in ../processed).
-    """
     logger.info('Starting final data process ...')
 
     # if output_path is empty, and interpolate is True, we set output_path to inter_inversionspath
@@ -42,6 +33,7 @@ def main(interpolate, output_path, format):
     if not output_path:
         output_path = processed_data_path / ("interpolated" if interpolate else "standard")
 
+    output_path = Path(output_path)
     processed_holograms_path = output_path / "holograms"
     processed_images_path = output_path / "images"
     processed_inversions_path = output_path / "inversions"
@@ -126,6 +118,18 @@ def main(interpolate, output_path, format):
         mix_columns=['mix_name'] + ['in_'+column for column in spec.info['indoor']['columns']] + ['out_'+column for column in spec.info['outdoor']['columns']]
         mix_df.to_csv(processed_metadata_path / 'mix.csv', index=False, header=True, columns=mix_columns)
 
+@click.command()
+@click.option('--interpolate', '-i', is_flag=True, default=False, 
+              help="Resize images to 60x60 resolution. This automatically enables '--precompute'. Run this command once without interpolation first to generate the required base files.")
+@click.option('--format', '-f', multiple=True, type=click.Choice(['npy', 'img', 'inv', 'meta']), 
+              default=('npy', 'img', 'inv', 'meta'), 
+              help="Choose output formats: 'npy' (NumPy arrays), 'img' (images), 'inv' (inverse data), 'meta' (metadata). Defaults to all formats. Repeat the flag for multiple choices.")
+@click.option('--output_path', '-o', type=click.Path(resolve_path=True), default=None,
+              help="Set the base output directory. The folder structure created will match the default one")
+
+def cli_make_processed(interpolate:bool = False, output_path:Optional[Path] = None, format:tuple[str, ...] = ('npy', 'img', 'inv', 'meta')):
+    make_processed(interpolate, output_path, format)
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-    main()
+    cli_make_processed()

@@ -1,0 +1,20 @@
+name: asmara
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - click
+  - numpy
+  - pandas
+  - pillow
+  - tqdm
+  - pytorch
+  - pytorch-lightning
+  - omegaconf
+  - hydra-core
+  - torchvision
+  - tensorboard
+  - pip
+  - pip:
+    - matlabengine

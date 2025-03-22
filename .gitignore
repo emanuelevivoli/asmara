@@ -7,4 +7,6 @@ dataset/data/processed_data/
 .DS_Store
 
 outputs/
+papers/
 logs/*
+!.gitkeep

@@ -1,7 +1,5 @@
 import sys
 import os
-from typing import Optional
-import torch
 from torch.utils.data import random_split, DataLoader, Subset
 import pytorch_lightning as pl
 import torchvision.transforms as transforms
@@ -51,7 +49,6 @@ class HoloMineDataModule(pl.LightningDataModule):
 
                 train_size = int(0.8 * len(out_ids))
                 val_size = int(0.1 * len(out_ids))
-                test_size = len(out_ids) - train_size - val_size
 
                 train_out_ids = out_ids[:train_size]
                 val_out_ids = out_ids[train_size:train_size+val_size]
@@ -90,7 +87,6 @@ class HoloMineDataModule(pl.LightningDataModule):
 
                 train_size = int(0.8 * len(unique_pairs))
                 val_size = int(0.1 * len(unique_pairs))
-                test_size = len(out_ids) - train_size - val_size
 
                 train_pairs = unique_pairs[:train_size]
                 val_out_ids = unique_pairs[train_size:train_size+val_size]

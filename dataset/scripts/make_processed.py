@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 import sys
 from typing import Optional
@@ -27,7 +26,6 @@ def make_processed(interpolate:bool = False, output_path:Optional[Path] = None, 
 
     logger.info('Starting final data process ...')
 
-    # if output_path is empty, and interpolate is True, we set output_path to inter_inversionspath
     data_path = Path(__file__).parent.parent.resolve() / "data"
     interm_data_path = data_path/ "interm_data"
     processed_data_path = data_path / "processed_data"
@@ -44,26 +42,21 @@ def make_processed(interpolate:bool = False, output_path:Optional[Path] = None, 
     interm_holograms_path = interm_data_path / ("interpolated" if interpolate else "standard") / "holograms"
     interm_inversions_path = interm_data_path / ("interpolated" if interpolate else "standard") / 'inversions'
 
-    # if output_path does not exist, create it
     data.if_null_create(output_path)
 
-    # if format is empty, all are set to True
     if not format:
         save_npy = save_img = save_inv = save_meta = True
     else:
         save_npy, save_img, save_inv, save_meta = (key in format for key in ('npy', 'img', 'inv', 'meta'))
 
-    # Read indoor and outdoor CSV files
     indoor_df = pd.read_csv(interm_metadata_path / 'indoor.csv')
     outdoor_df = pd.read_csv(interm_metadata_path / 'outdoor.csv')
 
-    # Split indoor and outdoor data
     indoor_meta = indoor_df.T.to_dict().values()
     outdoor_meta = outdoor_df.T.to_dict().values()
 
     mixed_meta = []
 
-    # Combine indoor and outdoor data
     for in_meta in tqdm(indoor_meta):
 
         for out_meta in outdoor_meta:
@@ -76,15 +69,12 @@ def make_processed(interpolate:bool = False, output_path:Optional[Path] = None, 
                 meta = {**meta, **in_meta, **out_meta}
                 mixed_meta.append(meta)
 
-            # check if at least one of the save_* is True
             if not (save_npy or save_img or save_inv ):
                 continue
 
-            # load holograms ( we needxto add at the end "holo.npy")
             in_holo = np.load(interm_holograms_path / 'indoor' / (in_meta['in_file_name']+"_holo.npy"))
             out_holo = np.load(interm_holograms_path / 'outdoor' / (out_meta['out_file_name']+"_holo.npy"))
 
-            # creating Holo objects
             in_holo = struct.Holo(in_holo)
             out_holo = struct.Holo(out_holo)
 
@@ -106,7 +96,6 @@ def make_processed(interpolate:bool = False, output_path:Optional[Path] = None, 
                 in_holo_inv = np.load(interm_inversions_path / 'indoor' / (in_meta['in_file_name']+"_inv.npy"))
                 out_holo_inv = np.load(interm_inversions_path / 'outdoor' / (out_meta['out_file_name']+"_inv.npy"))
 
-                # creating Holo objects
                 in_holo = struct.Holo(in_holo_inv)
                 out_holo = struct.Holo(out_holo_inv)
 

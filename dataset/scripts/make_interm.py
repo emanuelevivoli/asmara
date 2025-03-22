@@ -63,7 +63,6 @@ def create_annotation(name, info, location, df_dict):
         category_ = 'ground-smarta'
         obj[f'{prefix}_additional'] = additional
 
-    # category = "mine"
     obj[f'{prefix}_category'] = category_
 
     return obj
@@ -89,7 +88,6 @@ def make_interm(interpolate:bool = False, precompute:bool = False, format:tuple[
 
     precompute = True if interpolate else precompute
 
-    # Initializes MATLAB engine if needed
     if not precompute:
         import matlab.engine
         eng = matlab.engine.start_matlab()

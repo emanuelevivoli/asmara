@@ -1,20 +1,20 @@
 name: asmara
 channels:
   - conda-forge
-  - defaults
 dependencies:
-  - python=3.9
   - click
+  - hydra-core
   - numpy
+  - omegaconf
   - pandas
   - pillow
-  - tqdm
+  - pip
+  - python=3.9
   - pytorch
   - pytorch-lightning
-  - omegaconf
-  - hydra-core
-  - torchvision
   - tensorboard
-  - pip
+  - torchvision
+  - tqdm
+  - holopy
   - pip:
     - matlabengine

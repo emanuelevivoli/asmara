@@ -10,3 +10,5 @@ outputs/
 papers/
 logs/*
 !.gitkeep
+
+pyrightconfig.json

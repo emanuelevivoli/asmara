@@ -61,7 +61,6 @@ def make_processed(interpolate:bool = False, output_path:Optional[Path] = None, 
 
         for out_meta in outdoor_meta:
 
-            # mixing metadata
             meta = {}
             meta['mix_name'] = f'{in_meta["in_file_name"]}__out_{out_meta["out_file_name"]}'
 

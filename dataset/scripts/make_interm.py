@@ -56,8 +56,6 @@ def create_annotation(name, info, location, df_dict):
         obj[f'{prefix}_distance_from_source'] = 8 if obj[f'{prefix}_distance_from_source'] == 'low' else 4 if obj[f'{prefix}_distance_from_source'] == 'bas' else None
         obj[f'{prefix}_inclination'] = inclination
         category_, name_ = df_dict.get(int(obj[f'{prefix}_id']), (None, None))
-
-        # name = "pmn-4"
         obj[f'{prefix}_name'] = name_
     else:
         category_ = 'ground-smarta'

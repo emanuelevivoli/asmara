@@ -52,7 +52,6 @@ class HoloMineDataset(torch.utils.data.Dataset):
         )
         data = torch.from_numpy(data).cfloat()
 
-        # data.shape should be torch.Size([52, 62])
         if not self.interps and (
             data.shape[0] != 52 or data.shape[1] != 62
         ):

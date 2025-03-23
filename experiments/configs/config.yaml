@@ -1,0 +1,21 @@
+# Net settings
+net: 'resnext50'
+lr: 0.00005
+classes: 1
+
+# Dataset settings
+split_type: 'random'
+transform: False
+interps: True
+inversion: False
+real_out: True
+
+# Dataloader settings
+batch_size: 512
+shuffle: True
+num_workers: 8
+
+# Experiment settings
+accelerator: 'gpu'
+exp_name: 'test'
+test_run: True

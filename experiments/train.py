@@ -3,7 +3,7 @@ import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import hydra
 from pathlib import Path
 
@@ -11,19 +11,19 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from dataset.HoloMineDataModule import HoloMineDataModule
 from models.ResNet import ResNet50
+from models.ResNeXt import ResNeXt50
 
 @hydra.main(version_base=None, config_path="configs", config_name="config")
 def main(cfg: DictConfig) -> None:
     dm = HoloMineDataModule(batch_size=cfg.batch_size, split_type=cfg.split_type, transform=cfg.transform, shuffle=cfg.shuffle, num_workers=cfg.num_workers, classes=cfg.classes, interps=cfg.interps, inversion=cfg.inversion, real_out=cfg.real_out)
-    net = cfg.net
-    if net == 'resnet50':
+    
+    net = cfg.get("net", None)  # Safely get net, default to None if missing
+    if net == "resnet50":
         model = ResNet50(num_classes=cfg.classes, lr=cfg.lr)
-    #TODO: model possibly unbound
-
-    # elif net == 'resnext':
-    #     model = ResNeXt.ResNetXt50(num_classes=cfg.classes, lr=cfg.lr)
-    # elif net == 'vit':
-    #     model = EfficientNet.EfficientNetV2(num_classes = cfg.classes, lr=cfg.lr)
+    elif net == "resnext50":
+        model = ResNeXt50(num_classes=cfg.classes, lr=cfg.lr)
+    else:
+        raise ValueError(f"Invalid or missing net parameter: {net}. Choose from ['resnet50', 'resnext50'].")
 
     logger = TensorBoardLogger(save_dir=Path(__file__).parent.resolve() / "logs" / cfg.net, name = cfg.exp_name, log_graph = True)
 
@@ -37,7 +37,8 @@ def main(cfg: DictConfig) -> None:
         mode='min'
     )
 
-    #TODO: trainer settings needs to be tested
+    #TODO: trainer log settings needs to be tested
+    #TODO: devices and accelerator handling needs to be tested
     trainer = pl.Trainer(max_epochs=1, accelerator='gpu', logger=logger, callbacks=[checkpoint_callback], fast_dev_run = cfg.test_run)
     # trainer = pl.Trainer(accelerator='gpu', devices=[int(cfg.gpu)], strategy='ddp', logger=logger, profiler="simple", callbacks=[checkpoint_callback], fast_dev_run = cfg.test_run)
 

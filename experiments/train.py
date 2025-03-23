@@ -37,10 +37,15 @@ def main(cfg: DictConfig) -> None:
         mode='min'
     )
 
-    #TODO: trainer log settings needs to be tested
-    #TODO: devices and accelerator handling needs to be tested
-    trainer = pl.Trainer(max_epochs=1, accelerator='gpu', logger=logger, callbacks=[checkpoint_callback], fast_dev_run = cfg.test_run)
-    # trainer = pl.Trainer(accelerator='gpu', devices=[int(cfg.gpu)], strategy='ddp', logger=logger, profiler="simple", callbacks=[checkpoint_callback], fast_dev_run = cfg.test_run)
+    if type(cfg.accelerator) == str:
+        accelerator = cfg.accelerator
+        devices = 'auto'
+    else:
+        accelerator = 'gpu'
+        devices = cfg.accelerator
+
+
+    trainer = pl.Trainer(accelerator=accelerator, devices = devices, logger=logger, callbacks=[checkpoint_callback], fast_dev_run = cfg.test_run)
 
     trainer.fit(model, datamodule=dm)
     trainer.test(model, datamodule=dm)

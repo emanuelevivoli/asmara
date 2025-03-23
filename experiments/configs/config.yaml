@@ -1,5 +1,5 @@
 # Net settings
-net: 'resnet50'
+net: 'resnext50'
 lr: 0.00005
 classes: 1
 
@@ -16,6 +16,6 @@ shuffle: True
 num_workers: 8
 
 # Experiment settings
-gpu: 0
+accelerator: 'gpu'
 exp_name: 'test'
 test_run: True

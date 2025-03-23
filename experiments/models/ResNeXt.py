@@ -43,7 +43,7 @@ class ResNeXt50(pl.LightningModule):
         rec = self.rec(output, labels)
 
         logs = {"train_loss": loss, "train_acc": acc, "train_f1": f1, "train_prec": prec, "train_rec": rec}
-        self.log_dict(logs, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
+        self.log_dict(logs, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
 
         return loss
 
@@ -57,7 +57,7 @@ class ResNeXt50(pl.LightningModule):
         rec = self.rec(output, labels)
 
         logs = {"val_loss": loss, "val_acc": acc, "val_f1": f1, "val_prec": prec, "val_rec": rec}
-        self.log_dict(logs, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
+        self.log_dict(logs, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
 
     def test_step(self, batch):
         inputs, labels = batch
@@ -69,7 +69,7 @@ class ResNeXt50(pl.LightningModule):
         rec = self.rec(output, labels)
 
         logs = {"test_loss": loss, "test_acc": acc, "test_f1": f1, "test_prec": prec, "test_rec": rec}
-        self.log_dict(logs, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
+        self.log_dict(logs, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
     
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), self.hparams.lr)

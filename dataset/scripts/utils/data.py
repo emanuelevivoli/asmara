@@ -2,6 +2,11 @@ import os
 import numpy as np
 from pathlib import Path
 
+def if_null_create(output_path:Path):
+    if not os.path.exists(str(output_path)):
+        os.makedirs(str(output_path))
+
+
 #WARNING: unused method
 def get_holo_noise(indoorpath, in_file_name, in_id, size):
     try: holo_noise = np.load(indoorpath / f"{in_file_name}.npy".replace(str(in_id).zfill(2), '00'))
@@ -33,10 +38,6 @@ def read_scans(indoor_dir, outdoor_dir):
             outdoor_scans.append(scan)
     
     return indoor_scans, outdoor_scans
-
-def if_null_create(output_path:Path):
-    if not os.path.exists(str(output_path)):
-        os.makedirs(str(output_path))
 
 #WARNING: unused method
 def check_task_classes(cfg):

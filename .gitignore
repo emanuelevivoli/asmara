@@ -8,7 +8,7 @@ dataset/data/processed_data/
 
 outputs/
 papers/
-logs/*
+experiments/logs/*
 !.gitkeep
 
 pyrightconfig.json
